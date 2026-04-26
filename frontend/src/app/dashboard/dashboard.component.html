@@ -1,0 +1,23 @@
+<div class="dashboard">
+
+  <header class="dash-header">
+    <div class="dash-title">
+      <span class="dot dot-green"></span>
+      Mini-SIEM — Dashboard de sécurité
+    </div>
+    <div class="dash-meta">
+      Dernière mise à jour : {{ lastUpdated | date:'HH:mm:ss' }}
+      &nbsp;·&nbsp; Polling toutes les 5s
+    </div>
+  </header>
+
+  <section class="section">
+    <app-stats-cards [stats]="stats"></app-stats-cards>
+  </section>
+
+  <section class="section">
+    <h2 class="section-title">Journaux réseau en temps réel</h2>
+    <app-log-table></app-log-table>
+  </section>
+
+</div>

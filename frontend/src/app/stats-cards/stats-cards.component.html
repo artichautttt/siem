@@ -1,0 +1,18 @@
+<div class="stats-grid" *ngIf="stats">
+  <div class="card card-blue">
+    <div class="card-label">Total Logs</div>
+    <div class="card-value">{{ stats.total_logs }}</div>
+  </div>
+  <div class="card card-red">
+    <div class="card-label">HIGH / CRITICAL</div>
+    <div class="card-value">{{ stats.high_critical }}</div>
+  </div>
+  <div class="card card-orange">
+    <div class="card-label">Trafic bloqué</div>
+    <div class="card-value">{{ stats.deny_count }}</div>
+  </div>
+  <div class="card card-green">
+    <div class="card-label">Trafic autorisé</div>
+    <div class="card-value">{{ stats.total_logs - stats.deny_count }}</div>
+  </div>
+</div>

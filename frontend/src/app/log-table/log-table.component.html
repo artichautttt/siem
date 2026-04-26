@@ -1,0 +1,62 @@
+<div class="table-toolbar">
+  <input
+    type="text"
+    placeholder="Rechercher IP, message, port..."
+    [(ngModel)]="searchQuery"
+    (keyup.enter)="onSearch()"
+    class="search-input"
+  />
+  <select [(ngModel)]="filterSeverity" (change)="onFilter()" class="filter-select">
+    <option value="">Toutes sévérités</option>
+    <option value="LOW">LOW</option>
+    <option value="MEDIUM">MEDIUM</option>
+    <option value="HIGH">HIGH</option>
+    <option value="CRITICAL">CRITICAL</option>
+  </select>
+  <select [(ngModel)]="filterAction" (change)="onFilter()" class="filter-select">
+    <option value="">Toutes actions</option>
+    <option value="ALLOW">ALLOW</option>
+    <option value="DENY">DENY</option>
+  </select>
+  <button (click)="onSearch()" class="btn-refresh">Actualiser</button>
+  <span class="log-count">{{ logs.length }} événements</span>
+</div>
+
+<div class="table-wrapper">
+  @if (loading) {
+    <div class="loading">Chargement...</div>
+  }
+  @if (!loading) {
+    <table>
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>IP Source</th>
+          <th>IP Dest</th>
+          <th>Port</th>
+          <th>Proto</th>
+          <th>Action</th>
+          <th>Sévérité</th>
+          <th>Message</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (log of logs; track log.id) {
+          <tr [class]="'row-' + log.severity.toLowerCase()">
+            <td class="mono">{{ log.timestamp | slice:0:19 }}</td>
+            <td class="mono">{{ log.src_ip }}</td>
+            <td class="mono">{{ log.dst_ip }}</td>
+            <td class="mono">{{ log.dst_port }}</td>
+            <td><span class="badge badge-proto">{{ log.protocol }}</span></td>
+            <td><span class="badge" [class]="actionClass(log.action)">{{ log.action }}</span></td>
+            <td><span class="badge" [class]="severityClass(log.severity)">{{ log.severity }}</span></td>
+            <td class="message">{{ log.message }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+  @if (!loading && logs.length === 0) {
+    <div class="empty">Aucun événement trouvé.</div>
+  }
+</div>
