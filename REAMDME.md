@@ -27,4 +27,3 @@ docker-compose up --build
 ```
 
 ## Screenshots
-[Ajoute tes screenshots ici]
