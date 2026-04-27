@@ -26,4 +26,3 @@ cd frontend && ng serve
 docker-compose up --build
 ```
 
-## Screenshots
