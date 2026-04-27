@@ -1,26 +1,53 @@
 <div class="table-toolbar">
   <input
     type="text"
+    name="search"
     placeholder="Rechercher IP, message, port..."
     [(ngModel)]="searchQuery"
     (keyup.enter)="onSearch()"
     class="search-input"
   />
-  <select [(ngModel)]="filterSeverity" (change)="onFilter()" class="filter-select">
-    <option value="">Toutes sévérités</option>
-    <option value="LOW">LOW</option>
-    <option value="MEDIUM">MEDIUM</option>
-    <option value="HIGH">HIGH</option>
-    <option value="CRITICAL">CRITICAL</option>
-  </select>
-  <select [(ngModel)]="filterAction" (change)="onFilter()" class="filter-select">
-    <option value="">Toutes actions</option>
-    <option value="ALLOW">ALLOW</option>
-    <option value="DENY">DENY</option>
-  </select>
+
+  <button (click)="showFilters = !showFilters" class="btn-filters">
+    Filtres @if (activeFilterCount > 0) { <span class="filter-badge">{{ activeFilterCount }}</span> }
+  </button>
+
+  <button (click)="exportCsv()" class="btn-export">Export CSV</button>
   <button (click)="onSearch()" class="btn-refresh">Actualiser</button>
-  <span class="log-count">{{ logs.length }} événements</span>
+  <span class="log-count">{{ logs.length }} evenements</span>
 </div>
+
+@if (showFilters) {
+  <div class="filters-panel">
+    <select name="severity" [(ngModel)]="filterSeverity" (change)="onFilter()" class="filter-select">
+      <option value="">Toutes severites</option>
+      <option value="LOW">LOW</option>
+      <option value="MEDIUM">MEDIUM</option>
+      <option value="HIGH">HIGH</option>
+      <option value="CRITICAL">CRITICAL</option>
+    </select>
+    <select name="action" [(ngModel)]="filterAction" (change)="onFilter()" class="filter-select">
+      <option value="">Toutes actions</option>
+      <option value="ALLOW">ALLOW</option>
+      <option value="DENY">DENY</option>
+    </select>
+    <select name="protocol" [(ngModel)]="filterProtocol" (change)="onFilter()" class="filter-select">
+      <option value="">Tous protocoles</option>
+      <option value="TCP">TCP</option>
+      <option value="UDP">UDP</option>
+      <option value="ICMP">ICMP</option>
+    </select>
+    <input
+      type="text"
+      name="srcip"
+      placeholder="IP source..."
+      [(ngModel)]="filterSrcIp"
+      (keyup.enter)="onFilter()"
+      class="filter-select"
+    />
+    <button (click)="resetFilters()" class="btn-reset">Reinitialiser</button>
+  </div>
+}
 
 <div class="table-wrapper">
   @if (loading) {
@@ -36,7 +63,7 @@
           <th>Port</th>
           <th>Proto</th>
           <th>Action</th>
-          <th>Sévérité</th>
+          <th>Severite</th>
           <th>Message</th>
         </tr>
       </thead>
@@ -57,6 +84,12 @@
     </table>
   }
   @if (!loading && logs.length === 0) {
-    <div class="empty">Aucun événement trouvé.</div>
+    <div class="empty">Aucun evenement trouve.</div>
   }
+</div>
+
+<div class="pagination">
+  <button (click)="prevPage()" [disabled]="currentPage === 0" class="btn-page">Precedent</button>
+  <span class="page-info">Page {{ currentPage + 1 }}</span>
+  <button (click)="nextPage()" [disabled]="logs.length < pageSize" class="btn-page">Suivant</button>
 </div>

@@ -68,3 +68,121 @@ td { padding: 10px 14px; vertical-align: middle; }
 .badge-proto { background: #1e2533; color: #94a3b8; }
 
 .loading, .empty { padding: 40px; text-align: center; color: #64748b; font-size: 14px; }
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+.chart-card {
+  background: #1a1f2e;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #1e2533;
+  height: 280px;
+}
+.chart-wide {
+  grid-column: 1 / -1;
+  height: 220px;
+}
+.filters-panel {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 12px;
+  background: #141824;
+  border-radius: 8px;
+  border: 1px solid #2d3748;
+}
+.btn-filters {
+  background: #1e2533;
+  color: #e2e8f0;
+  border: 1px solid #2d3748;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-filters:hover { border-color: #3b82f6; }
+.filter-badge {
+  background: #3b82f6;
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-export {
+  background: #052e16;
+  color: #86efac;
+  border: 1px solid #22c55e;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+.btn-export:hover { background: #22c55e; color: white; }
+.btn-reset {
+  background: #450a0a;
+  color: #fca5a5;
+  border: 1px solid #ef4444;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.btn-reset:hover { background: #ef4444; color: white; }
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 12px;
+}
+.btn-page {
+  background: #1a1f2e;
+  color: #e2e8f0;
+  border: 1px solid #2d3748;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.btn-page:hover:not(:disabled) { border-color: #3b82f6; }
+.btn-page:disabled { opacity: 0.4; cursor: not-allowed; }
+.page-info { font-size: 13px; color: #64748b; }
+.alerts-header { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; }
+.risk-card { border: 1px solid; border-radius: 12px; padding: 20px 24px; min-width: 220px; }
+.risk-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+.risk-score { font-size: 48px; font-weight: 700; line-height: 1; }
+.risk-max { font-size: 18px; color: #64748b; }
+.risk-level { font-size: 14px; font-weight: 600; margin-top: 4px; }
+.risk-events { font-size: 12px; color: #64748b; margin-top: 4px; }
+.risk-bar-bg { background: #1e2533; border-radius: 4px; height: 6px; margin-top: 12px; }
+.risk-bar-fill { height: 6px; border-radius: 4px; transition: width 0.5s ease; }
+.alerts-actions { display: flex; flex-direction: column; gap: 10px; }
+.btn-detect { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; }
+.btn-detect:hover:not(:disabled) { background: #2563eb; }
+.btn-detect:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-toggle { background: #1a1f2e; color: #94a3b8; border: 1px solid #2d3748; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+.btn-toggle:hover { border-color: #3b82f6; }
+.alerts-list { display: flex; flex-direction: column; gap: 8px; }
+.alert-card { background: #1a1f2e; border: 1px solid #1e2533; border-radius: 10px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.alert-card.resolved { opacity: 0.5; }
+.alert-left { display: flex; align-items: flex-start; gap: 12px; flex: 1; }
+.alert-info { flex: 1; }
+.alert-rule { font-size: 14px; font-weight: 600; color: #f8fafc; margin-bottom: 3px; }
+.alert-desc { font-size: 13px; color: #94a3b8; margin-bottom: 4px; }
+.alert-meta { font-size: 12px; color: #64748b; }
+.btn-resolve { background: #052e16; color: #86efac; border: 1px solid #22c55e; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; white-space: nowrap; }
+.btn-resolve:hover { background: #22c55e; color: white; }
+.resolved-tag { font-size: 12px; color: #22c55e; white-space: nowrap; }

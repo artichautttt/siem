@@ -44,6 +44,10 @@ export class LogService {
     return this.http.get<Stats>(`${this.base}/stats`);
   }
 
+  getTimeline(): Observable<{ hour: string; total: number; denied: number; threats: number }[]> {
+    return this.http.get<any[]>(`${this.base}/stats/timeline`);
+  }
+
   searchLogs(q: string): Observable<{ results: Log[]; total: number }> {
     return this.http.get<{ results: Log[]; total: number }>(
       `${this.base}/search`, { params: new HttpParams().set('q', q) }

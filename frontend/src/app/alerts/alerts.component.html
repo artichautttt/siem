@@ -1,0 +1,49 @@
+<div class="alerts-header">
+
+  <div class="risk-card" [style.background]="riskBg()" [style.border-color]="riskColor()">
+    <div class="risk-label">Score de risque global</div>
+    <div class="risk-score" [style.color]="riskColor()">{{ riskScore.score }}<span class="risk-max">/100</span></div>
+    <div class="risk-level" [style.color]="riskColor()">{{ riskScore.level }}</div>
+    <div class="risk-events">{{ riskScore.events }} événements analysés (1h)</div>
+    <div class="risk-bar-bg">
+      <div class="risk-bar-fill" [style.width.%]="riskScore.score" [style.background]="riskColor()"></div>
+    </div>
+  </div>
+
+  <div class="alerts-actions">
+    <button (click)="runDetection()" class="btn-detect" [disabled]="detecting">
+      @if (detecting) { Analyse en cours... } @else { Lancer la détection }
+    </button>
+    <button (click)="toggleResolved()" class="btn-toggle">
+      @if (showResolved) { Masquer résolues } @else { Voir toutes }
+    </button>
+  </div>
+
+</div>
+
+<div class="alerts-list">
+  @if (alerts.length === 0) {
+    <div class="empty">Aucune alerte active — système nominal ✓</div>
+  }
+  @for (alert of alerts; track alert.id) {
+    <div class="alert-card" [class.resolved]="alert.resolved === 1">
+      <div class="alert-left">
+        <span class="badge" [class]="severityClass(alert.severity)">{{ alert.severity }}</span>
+        <div class="alert-info">
+          <div class="alert-rule">{{ alert.rule_name }}</div>
+          <div class="alert-desc">{{ alert.description }}</div>
+          <div class="alert-meta">
+            <span class="mono">{{ alert.src_ip }}</span>
+            &nbsp;·&nbsp;
+            {{ alert.timestamp | slice:0:19 }}
+          </div>
+        </div>
+      </div>
+      @if (alert.resolved === 0) {
+        <button (click)="resolveAlert(alert.id)" class="btn-resolve">Résoudre</button>
+      } @else {
+        <span class="resolved-tag">Résolue</span>
+      }
+    </div>
+  }
+</div>

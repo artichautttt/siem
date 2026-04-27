@@ -3,11 +3,15 @@ import { CommonModule } from '@angular/common';
 import { LogService, Stats } from '../services/log.service';
 import { StatsCardsComponent } from '../stats-cards/stats-cards.component';
 import { LogTableComponent } from '../log-table/log-table.component';
+import { ChartsComponent } from '../charts/charts.component';
+import { AlertsComponent } from '../alerts/alerts.component';
+
+
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, StatsCardsComponent, LogTableComponent],
+  imports: [CommonModule, StatsCardsComponent, LogTableComponent, ChartsComponent, AlertsComponent],
   templateUrl: './dashboard.component.html',
 })
 export class DashboardComponent implements OnInit {
