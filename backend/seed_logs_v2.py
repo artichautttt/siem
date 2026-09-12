@@ -10,12 +10,11 @@ Usage :
 import requests
 import argparse
 import sqlite3
-import os
 from generator import LogGenerator
 from parser import LogParser
+from config import DB_PATH, API_KEY
 
 API_URL = "http://localhost:5000/api/logs"
-DB_PATH = os.path.join(os.path.dirname(__file__), "siem.db")
 
 
 def seed_via_api(n: int):
@@ -26,6 +25,7 @@ def seed_via_api(n: int):
 
     print(f"[seed] Envoi de {len(logs)} logs vers {API_URL}")
     success = errors = 0
+    headers = {"X-API-Key": API_KEY}
 
     for log in logs:
         parsed, ok, err = parser.parse(log)
@@ -39,7 +39,7 @@ def seed_via_api(n: int):
                              "dst_port", "protocol", "action", "bytes",
                              "severity", "message"]}
         try:
-            r = requests.post(API_URL, json=payload, timeout=3)
+            r = requests.post(API_URL, json=payload, headers=headers, timeout=3)
             if r.status_code == 201:
                 success += 1
             else:
