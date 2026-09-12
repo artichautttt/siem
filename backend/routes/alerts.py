@@ -4,12 +4,14 @@ routes/alerts.py — Endpoints pour la gestion des alertes (Jour 3)
 from flask import Blueprint, request, jsonify
 from database import get_db
 from datetime import datetime
+from auth import require_api_key
 
 alerts_bp = Blueprint("alerts", __name__)
 
 
 # ── POST /api/alerts ───────────────────────────────────────────────────────────
 @alerts_bp.route("/alerts", methods=["POST"])
+@require_api_key
 def create_alert():
     """Crée une alerte manuellement."""
     data = request.get_json(silent=True)
@@ -82,6 +84,7 @@ def get_alerts():
 
 # ── PATCH /api/alerts/<id>/resolve ─────────────────────────────────────────────
 @alerts_bp.route("/alerts/<int:alert_id>/resolve", methods=["PATCH"])
+@require_api_key
 def resolve_alert(alert_id):
     """Marque une alerte comme résolue."""
     conn = get_db()
@@ -98,6 +101,7 @@ def resolve_alert(alert_id):
 
 # ── DELETE /api/alerts/<id> ────────────────────────────────────────────────────
 @alerts_bp.route("/alerts/<int:alert_id>", methods=["DELETE"])
+@require_api_key
 def delete_alert(alert_id):
     """Supprime une alerte."""
     conn = get_db()

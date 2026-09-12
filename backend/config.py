@@ -1,0 +1,117 @@
+"""
+config.py — Configuration centralisée et constantes partagées du Mini-SIEM.
+
+Regroupe :
+    - Les paramètres lus depuis l'environnement (.env) : port, chemin DB,
+      origines CORS, clé API, mode debug.
+    - Les constantes métier auparavant dupliquées dans detector.py, parser.py
+      et generator.py : IPs connues malveillantes, ports critiques/à risque,
+      mapping service <-> port.
+"""
+import os
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # python-dotenv non installé (ex: environnement minimal) : on continue
+    # avec les seules variables d'environnement déjà présentes.
+    pass
+
+
+# ── Paramètres d'exécution ─────────────────────────────────────────────────────
+PORT = int(os.environ.get("PORT", 5000))
+FLASK_DEBUG = os.environ.get("FLASK_DEBUG", "False").lower() in {"1", "true", "yes"}
+
+DB_PATH = os.environ.get(
+    "DB_PATH",
+    os.path.join(os.path.dirname(__file__), "siem.db"),
+)
+
+CORS_ORIGINS = [
+    o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:4200").split(",")
+    if o.strip()
+]
+
+# Clé API utilisée pour protéger les endpoints d'écriture (header X-API-Key).
+# Valeur par défaut fournie UNIQUEMENT pour le développement local — à changer
+# impérativement en environnement partagé/prod via la variable API_KEY.
+API_KEY = os.environ.get("API_KEY", "change-me")
+
+
+# ── Constantes métier partagées ────────────────────────────────────────────────
+
+# IPs connues comme malveillantes (liste simplifiée pour la démo pédagogique).
+KNOWN_BAD_IPS = {
+    "45.33.32.156",   # Shodan scanner
+    "198.51.100.5",   # Test range (RFC 5737)
+    "203.0.113.42",   # Test range (RFC 5737)
+}
+
+# Ports critiques (services historiquement vulnérables : Telnet, SMB, RDP).
+CRITICAL_PORTS = {23, 445, 3389}
+
+# Ports à risque élevé (SSH, bases de données exposées).
+HIGH_PORTS = {22, 3306, 5432, 6379, 27017}
+
+# Classification service/sévérité par port, utilisée par le parser pour
+# enrichir les logs et déduire une sévérité par défaut.
+PORT_RISK = {
+    22:    ("SSH",        "HIGH"),
+    23:    ("Telnet",     "CRITICAL"),
+    21:    ("FTP",        "MEDIUM"),
+    25:    ("SMTP",       "MEDIUM"),
+    53:    ("DNS",        "LOW"),
+    80:    ("HTTP",       "LOW"),
+    443:   ("HTTPS",      "LOW"),
+    445:   ("SMB",        "CRITICAL"),
+    3306:  ("MySQL",      "HIGH"),
+    3389:  ("RDP",        "CRITICAL"),
+    5432:  ("PostgreSQL", "HIGH"),
+    6379:  ("Redis",      "HIGH"),
+    8080:  ("HTTP-Alt",   "LOW"),
+    8443:  ("HTTPS-Alt",  "LOW"),
+    27017: ("MongoDB",    "HIGH"),
+}
+
+# Nom du service associé à chaque port critique (utilisé par detector.py).
+CRITICAL_SERVICE_NAMES = {23: "Telnet", 445: "SMB", 3389: "RDP"}
+
+# ── Mapping MITRE ATT&CK des règles de détection ───────────────────────────────
+MITRE_MAPPING = {
+    "Brute Force SSH": {
+        "technique_id":   "T1110",
+        "technique_name": "Brute Force",
+        "tactic":         "Credential Access",
+    },
+    "Port Scan": {
+        "technique_id":   "T1595",
+        "technique_name": "Active Scanning",
+        "tactic":         "Reconnaissance",
+    },
+    "Volume Anormal": {
+        "technique_id":   "T1041",
+        "technique_name": "Exfiltration Over C2 Channel",
+        "tactic":         "Exfiltration",
+    },
+    "Accès Telnet Critique": {
+        "technique_id":   "T1021",
+        "technique_name": "Remote Services",
+        "tactic":         "Lateral Movement",
+    },
+    "Accès SMB Critique": {
+        "technique_id":   "T1021.002",
+        "technique_name": "Remote Services: SMB/Windows Admin Shares",
+        "tactic":         "Lateral Movement",
+    },
+    "Accès RDP Critique": {
+        "technique_id":   "T1021.001",
+        "technique_name": "Remote Services: Remote Desktop Protocol",
+        "tactic":         "Lateral Movement",
+    },
+    "IP Malveillante Connue": {
+        "technique_id":   "T1590",
+        "technique_name": "Gather Victim Network Information",
+        "tactic":         "Reconnaissance",
+    },
+}

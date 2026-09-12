@@ -3,12 +3,14 @@ routes/detection.py — Endpoint Flask pour le moteur de détection (Jour 7)
 """
 from flask import Blueprint, request, jsonify
 from detector import DetectionEngine
+from auth import require_api_key
 
 detection_bp = Blueprint("detection", __name__)
 
 
 # ── POST /api/detect ───────────────────────────────────────────────────────────
 @detection_bp.route("/detect", methods=["POST"])
+@require_api_key
 def run_detection():
     """
     Lance le moteur de détection manuellement.

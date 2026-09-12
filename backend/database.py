@@ -1,7 +1,6 @@
 import sqlite3
-import os
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "siem.db")
+from config import DB_PATH
 
 
 def get_db():
@@ -48,4 +47,4 @@ def init_db():
 
     conn.commit()
     conn.close()
-    print("[DB] Base de données initialisée → siem.db")
+    print("[DB] Base de données initialisée -> " + DB_PATH)
