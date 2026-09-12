@@ -1,59 +1,45 @@
-# Frontend
+# Mini-SIEM — Frontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.0.0.
+Dashboard Angular du projet [Mini-SIEM](../README.md) : visualisation en temps
+réel des logs réseau, des statistiques, des graphiques et des alertes de
+détection générées par le backend Flask.
 
-## Development server
+Voir le [README principal du repo](../README.md) pour le contexte global du
+projet, l'architecture complète, le mapping MITRE ATT&CK et les instructions
+de lancement via Docker Compose (recommandé).
 
-To start a local development server, run:
+## Stack technique
+
+- Angular 21 (composants standalone, sans NgModules)
+- Chart.js pour les graphiques (répartition des sévérités, top IPs, timeline)
+- RxJS / HttpClient pour la communication avec l'API backend
+
+## Lancement en développement
 
 ```bash
+npm install
 ng serve
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+Application disponible sur `http://localhost:4200/`. Par défaut, l'API backend
+est attendue sur `http://localhost:5000/api` (voir
+`src/environments/environment.ts`).
 
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
+## Build de production
 
 ```bash
 ng build
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+Les artefacts sont générés dans `dist/`. Le build de production utilise
+`src/environments/environment.prod.ts` (voir `fileReplacements` dans
+`angular.json`).
 
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
+## Tests
 
 ```bash
 ng test
 ```
 
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Tests unitaires Jasmine/Karma, notamment sur `LogService` et
+`AlertsComponent`.
