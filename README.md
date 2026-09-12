@@ -44,16 +44,21 @@ flowchart LR
 
 Prérequis : Docker et Docker Compose.
 
-1. Copier le fichier d'environnement backend et adapter les valeurs :
+1. Copier le fichier d'environnement à la racine du projet et adapter les valeurs :
    ```bash
-   cp backend/.env.example backend/.env
+   cp .env.example .env
    ```
+   C'est ce fichier `.env` **racine** (à côté de `docker-compose.yml`) que Docker
+   Compose lit pour renseigner les variables du service `backend` — éditer
+   `backend/.env` n'a aucun effet sur le déploiement Docker (voir plus bas).
    Variables principales :
-   - `PORT` : port d'écoute Flask (défaut `5000`)
-   - `DB_PATH` : chemin du fichier SQLite
    - `CORS_ORIGINS` : origines autorisées, séparées par des virgules (défaut `http://localhost:4200`)
    - `API_KEY` : clé requise en header `X-API-Key` pour les endpoints d'écriture — **à changer** avant tout usage partagé
    - `FLASK_DEBUG` : `True`/`False`, ne jamais activer en production
+
+   `PORT` et `DB_PATH` sont fixés directement dans `docker-compose.yml` (respectivement
+   `5000` et `/app/data/siem.db`, ce dernier monté depuis `./backend/data`) et ne se
+   configurent pas via ce `.env`.
 
 2. Lancer l'ensemble des services :
    ```bash
@@ -69,6 +74,12 @@ Prérequis : Docker et Docker Compose.
    ```
 
 ### Lancement sans Docker
+
+Pour ce mode, la configuration se fait via `backend/.env` (chargé par
+`python-dotenv`) plutôt que le `.env` racine :
+```bash
+cp backend/.env.example backend/.env
+```
 
 ```bash
 # Backend (dev)
@@ -107,7 +118,9 @@ curl -X POST http://localhost:5000/api/detect \
 
 Chaque règle de détection est associée à une technique du framework
 [MITRE ATT&CK](https://attack.mitre.org/), retournée dans le champ `mitre` de
-chaque alerte produite par `POST /api/detect`.
+chaque alerte produite par `POST /api/detect`. Le moteur implémente 5 règles ;
+la règle "accès à un service critique" couvre 3 ports (Telnet/SMB/RDP),
+détaillés ci-dessous chacun sur sa propre ligne.
 
 | Règle                          | Déclencheur                                             | Sévérité | Technique MITRE ATT&CK |
 |---------------------------------|----------------------------------------------------------|----------|--------------------------|
