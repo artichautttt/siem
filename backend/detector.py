@@ -14,20 +14,17 @@ Usage :
     alerts = engine.run()   # analyse la DB et retourne les alertes générées
 """
 import sqlite3
-import os
 from datetime import datetime, timedelta
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "siem.db")
-
-KNOWN_BAD_IPS = {
-    "45.33.32.156",
-    "198.51.100.5",
-    "203.0.113.42",
-}
-
-CRITICAL_PORTS = {23, 445, 3389}   # Telnet, SMB, RDP
-HIGH_PORTS     = {22, 3306, 5432, 6379, 27017}
+from config import (
+    DB_PATH,
+    KNOWN_BAD_IPS,
+    CRITICAL_PORTS,
+    HIGH_PORTS,
+    CRITICAL_SERVICE_NAMES,
+    MITRE_MAPPING,
+)
 
 
 @dataclass
@@ -37,6 +34,7 @@ class Alert:
     severity:    str
     description: str
     timestamp:   str
+    mitre:       dict = field(default_factory=dict)
 
 
 def get_db():
@@ -94,6 +92,7 @@ class DetectionEngine:
                 severity    = "CRITICAL",
                 description = f"Brute force SSH détecté : {r['cnt']} tentatives en {self.window} min depuis {ip}",
                 timestamp   = datetime.utcnow().isoformat(),
+                mitre       = MITRE_MAPPING.get("Brute Force SSH", {}),
             ))
         return alerts
 
@@ -119,6 +118,7 @@ class DetectionEngine:
                 severity    = "HIGH",
                 description = f"Port scan détecté : {r['ports']} ports distincts ciblés en {self.window} min depuis {ip}",
                 timestamp   = datetime.utcnow().isoformat(),
+                mitre       = MITRE_MAPPING.get("Port Scan", {}),
             ))
         return alerts
 
@@ -145,6 +145,7 @@ class DetectionEngine:
                 severity    = "HIGH",
                 description = f"Volume de données anormal : {mb:.1f} MB depuis {ip} en {self.window} min",
                 timestamp   = datetime.utcnow().isoformat(),
+                mitre       = MITRE_MAPPING.get("Volume Anormal", {}),
             ))
         return alerts
 
@@ -159,11 +160,10 @@ class DetectionEngine:
             GROUP BY src_ip, dst_port
         """, (self.since,))
 
-        service_map = {23: "Telnet", 445: "SMB", 3389: "RDP"}
         alerts = []
         for r in rows:
             ip      = r["src_ip"]
-            service = service_map.get(r["dst_port"], str(r["dst_port"]))
+            service = CRITICAL_SERVICE_NAMES.get(r["dst_port"], str(r["dst_port"]))
             rule    = f"Accès {service} Critique"
             if self._alert_exists(rule, ip):
                 continue
@@ -173,6 +173,7 @@ class DetectionEngine:
                 severity    = "CRITICAL",
                 description = f"Tentative d'accès {service} (port {r['dst_port']}) bloquée depuis {ip} — {r['cnt']} fois",
                 timestamp   = datetime.utcnow().isoformat(),
+                mitre       = MITRE_MAPPING.get(rule, {}),
             ))
         return alerts
 
@@ -195,6 +196,7 @@ class DetectionEngine:
                 severity    = "HIGH",
                 description = f"Activité détectée depuis IP malveillante connue {ip} — {cnt} événements",
                 timestamp   = datetime.utcnow().isoformat(),
+                mitre       = MITRE_MAPPING.get("IP Malveillante Connue", {}),
             ))
         return alerts
 

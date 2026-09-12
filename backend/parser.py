@@ -15,33 +15,7 @@ from datetime import datetime
 from typing import Optional
 import ipaddress
 
-
-# ── Classification des ports ──────────────────────────────────────────────────
-PORT_RISK = {
-    # Port  : (service, sévérité par défaut si DENY)
-    22:   ("SSH",        "HIGH"),
-    23:   ("Telnet",     "CRITICAL"),
-    21:   ("FTP",        "MEDIUM"),
-    25:   ("SMTP",       "MEDIUM"),
-    53:   ("DNS",        "LOW"),
-    80:   ("HTTP",       "LOW"),
-    443:  ("HTTPS",      "LOW"),
-    445:  ("SMB",        "CRITICAL"),
-    3306: ("MySQL",      "HIGH"),
-    3389: ("RDP",        "CRITICAL"),
-    5432: ("PostgreSQL", "HIGH"),
-    6379: ("Redis",      "HIGH"),
-    8080: ("HTTP-Alt",   "LOW"),
-    8443: ("HTTPS-Alt",  "LOW"),
-    27017:("MongoDB",    "HIGH"),
-}
-
-# IPs connues comme malveillantes (liste simplifiée pour la démo)
-KNOWN_BAD_IPS = {
-    "45.33.32.156",   # Shodan scanner
-    "198.51.100.5",   # Test range (RFC 5737)
-    "203.0.113.42",   # Test range (RFC 5737)
-}
+from config import PORT_RISK, KNOWN_BAD_IPS
 
 # Plages IP internes (RFC 1918)
 PRIVATE_RANGES = [

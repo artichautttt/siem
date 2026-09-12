@@ -13,6 +13,8 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
 from typing import Optional
 
+from config import KNOWN_BAD_IPS
+
 
 # ── Modèle de données ─────────────────────────────────────────────────────────
 @dataclass
@@ -35,10 +37,7 @@ class LogEntry:
 
 # ── Données de simulation ─────────────────────────────────────────────────────
 INTERNAL_SUBNET = [f"192.168.1.{i}" for i in range(1, 30)]
-EXTERNAL_IPS = [
-    "45.33.32.156",    # IP connue pour du scanning
-    "198.51.100.5",
-    "203.0.113.42",
+EXTERNAL_IPS = list(KNOWN_BAD_IPS) + [
     "91.108.4.10",     # Telegram (souvent filtré en entreprise)
     "8.8.8.8",         # Google DNS
     "1.1.1.1",         # Cloudflare DNS
