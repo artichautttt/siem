@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface Log {
   id: number;
@@ -16,19 +17,19 @@ export interface Log {
   message: string;
 }
 
+// Doit correspondre exactement à la réponse JSON de GET /api/stats
+// (voir backend/routes/logs.py::get_stats).
 export interface Stats {
   total_logs: number;
   high_critical: number;
-  deny_count: number;
   by_severity: { severity: string; count: number }[];
   by_action: { action: string; count: number }[];
-  by_protocol: { protocol: string; count: number }[];
   top_source_ips: { src_ip: string; count: number }[];
 }
 
 @Injectable({ providedIn: 'root' })
 export class LogService {
-  private base = 'http://localhost:5000/api';
+  private base = environment.apiUrl;
 
   constructor(private http: HttpClient) {}
 

@@ -10,4 +10,12 @@ import { Stats } from '../services/log.service';
 })
 export class StatsCardsComponent {
   @Input() stats: Stats | null = null;
+
+  get denyCount(): number {
+    return this.stats?.by_action.find(a => a.action === 'DENY')?.count ?? 0;
+  }
+
+  get allowCount(): number {
+    return (this.stats?.total_logs ?? 0) - this.denyCount;
+  }
 }

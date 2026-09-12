@@ -1,6 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { environment } from '../../environments/environment';
 
 interface Alert {
   id:          number;
@@ -31,7 +32,8 @@ export class AlertsComponent implements OnInit {
   detecting  = false;
   showResolved = false;
 
-  private base = 'http://localhost:5000/api';
+  private base = environment.apiUrl;
+  private authHeaders = new HttpHeaders({ 'X-API-Key': environment.apiKey });
 
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
 
@@ -60,7 +62,7 @@ export class AlertsComponent implements OnInit {
 
   runDetection(): void {
     this.detecting = true;
-    this.http.post<any>(`${this.base}/detect`, { window_minutes: 60 }).subscribe({
+    this.http.post<any>(`${this.base}/detect`, { window_minutes: 60 }, { headers: this.authHeaders }).subscribe({
       next: res => {
         this.detecting = false;
         this.loadAlerts();
@@ -72,7 +74,7 @@ export class AlertsComponent implements OnInit {
   }
 
   resolveAlert(id: number): void {
-    this.http.patch(`${this.base}/alerts/${id}/resolve`, {}).subscribe({
+    this.http.patch(`${this.base}/alerts/${id}/resolve`, {}, { headers: this.authHeaders }).subscribe({
       next: () => { this.loadAlerts(); this.cdr.detectChanges(); },
       error: err => console.error(err),
     });

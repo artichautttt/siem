@@ -9,10 +9,10 @@
   </div>
   <div class="card card-orange">
     <div class="card-label">Trafic bloqué</div>
-    <div class="card-value">{{ stats.deny_count }}</div>
+    <div class="card-value">{{ denyCount }}</div>
   </div>
   <div class="card card-green">
     <div class="card-label">Trafic autorisé</div>
-    <div class="card-value">{{ stats.total_logs - stats.deny_count }}</div>
+    <div class="card-value">{{ allowCount }}</div>
   </div>
 </div>
