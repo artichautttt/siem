@@ -39,7 +39,6 @@ flowchart LR
 ## Aperçu
 
 ![Dashboard](docs/screenshot-dashboard.png)
-*(à remplacer par une vraie capture d'écran du dashboard une fois l'application lancée)*
 
 ## Installation et lancement (Docker Compose)
 
