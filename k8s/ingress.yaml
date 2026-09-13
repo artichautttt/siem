@@ -1,0 +1,33 @@
+# Ingress unique exposant le frontend sur "/" et l'API backend sur "/api".
+# Limite connue : le frontend Angular est compilé avec une URL API absolue
+# (http://localhost:5000/api, voir frontend/src/environments/environment.ts),
+# donc le navigateur appelle le Service backend directement (via
+# `kubectl port-forward`/NodePort sur le port 5000), pas via cette règle
+# Ingress "/api" — celle-ci reste fonctionnelle mais n'est pas utilisée par
+# le frontend actuel tel que buildé.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mini-siem-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          # Le backend Flask enregistre déjà ses routes sous /api (voir
+          # app.py: url_prefix="/api") : aucun rewrite de chemin nécessaire,
+          # /api/xxx est transmis tel quel.
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 5000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

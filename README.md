@@ -174,6 +174,76 @@ Pipeline GitHub Actions défini dans [`.github/workflows/ci-cd.yml`](.github/wor
 - Pas de registre d'images (le build Docker se fait directement sur l'instance cible).
 - Pas de HTTPS/reverse proxy en amont (accès direct sur les ports 4200/5000).
 
+## Kubernetes (Minikube, local)
+
+Manifests dans [`k8s/`](k8s/) — orchestration locale de la même application que le
+`docker-compose.yml`, sans lien avec le déploiement EC2/GitHub Actions ci-dessus
+(cluster local, pas de cluster managé payant).
+
+**Ressources créées** (vérifiées via `kubectl get pods,svc,deploy,pvc,ingress`) :
+- 2 `Deployment` (1 replica chacun) : `backend`, `frontend`
+- 2 `Service` ClusterIP : `backend` (5000), `frontend` (80)
+- 1 `ConfigMap` (`mini-siem-config`) : variables non sensibles (`PORT`, `DB_PATH`,
+  `CORS_ORIGINS`, `FLASK_DEBUG`, `WAZUH_*` non secrets)
+- 1 `Secret` (`mini-siem-secret`) : `API_KEY`, `WAZUH_PASSWORD` — **non commité**,
+  voir `k8s/secret.example.yaml` comme modèle
+- 1 `PersistentVolumeClaim` (`mini-siem-data`, 200 Mi) : stockage du fichier SQLite,
+  monté sur `/app/data` dans le pod backend
+- 1 `Ingress` (`mini-siem-ingress`, classe `nginx`) : route `/` vers `frontend`,
+  `/api` vers `backend`
+
+**Lancer le cluster local :**
+```bash
+minikube start --driver=docker
+minikube addons enable ingress
+```
+
+**Construire les images pour Minikube** (le cluster local a son propre registre
+d'images, distinct du Docker de l'hôte) :
+```bash
+docker build -t minisiem-backend:k8s ./backend
+docker build -t minisiem-frontend:k8s ./frontend
+minikube image load minisiem-backend:k8s
+minikube image load minisiem-frontend:k8s
+```
+
+**Déployer :**
+```bash
+# Créer le Secret réel (valeurs propres à l'environnement, jamais commitées)
+kubectl create secret generic mini-siem-secret \
+  --from-literal=API_KEY=<votre-clé> \
+  --from-literal=WAZUH_PASSWORD=<votre-mot-de-passe>
+
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/backend.yaml
+kubectl apply -f k8s/frontend.yaml
+kubectl apply -f k8s/ingress.yaml
+```
+
+**Accéder à l'application** (le driver Docker de Minikube sur Windows/Mac n'expose
+pas directement l'IP du cluster à l'hôte, un tunnel ou port-forward est nécessaire) :
+```bash
+# Frontend + API via l'Ingress (contrôleur ingress-nginx)
+kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8080:80
+# -> http://localhost:8080/         (frontend)
+# -> http://localhost:8080/api/health (backend)
+
+# Ou directement sur les Services, pour reproduire les ports du docker-compose local
+kubectl port-forward svc/backend 5000:5000
+kubectl port-forward svc/frontend 4200:80
+```
+
+**Testé et vérifié le 2026-09-13 :** les deux pods démarrent `Running` (1/1) sans
+redémarrage, le `PersistentVolumeClaim` passe à l'état `Bound`, et les trois modes
+d'accès ci-dessus renvoient `200` sur `/` et `/api/health`.
+
+**Limite connue :** le frontend Angular est compilé avec une URL d'API absolue
+(`http://localhost:5000/api`, voir `frontend/src/environments/environment.ts`) —
+la règle Ingress `/api` fonctionne, mais le frontend tel que buildé actuellement ne
+l'utilise pas et appelle directement le Service `backend` exposé en local (via
+`port-forward` ci-dessus). Rendre cette URL relative serait nécessaire pour que
+l'Ingress serve de point d'entrée unique réel.
+
 ## Limites connues
 
 Ce projet est **pédagogique** et n'est pas destiné à un usage en production :

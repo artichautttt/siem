@@ -1,0 +1,14 @@
+# ConfigMap : variables d'environnement non sensibles du backend Flask.
+# Équivalent des valeurs actuellement passées en clair dans docker-compose.yml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mini-siem-config
+data:
+  PORT: "5000"
+  DB_PATH: "/app/data/siem.db"
+  CORS_ORIGINS: "http://localhost:4200"
+  FLASK_DEBUG: "False"
+  WAZUH_INDEXER_URL: "https://host.minikube.internal:9200"
+  WAZUH_USER: "admin"
+  WAZUH_VERIFY_SSL: "False"
