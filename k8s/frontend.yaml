@@ -16,6 +16,16 @@ spec:
         - name: frontend
           image: minisiem-frontend:k8s
           imagePullPolicy: IfNotPresent
+          env:
+            # Le "resolver" nginx (voir frontend/nginx.conf.template) ne suit
+            # pas les domaines de recherche de /etc/resolv.conf comme le fait
+            # la résolution système classique : il faut le FQDN complet du
+            # Service pour que CoreDNS le résolve ("backend" seul échoue avec
+            # "could not be resolved", testé en pratique). Le nom court reste
+            # la valeur par défaut du Dockerfile pour docker-compose (Docker
+            # résout les noms de service courts nativement).
+            - name: BACKEND_HOST
+              value: "backend.default.svc.cluster.local:5000"
           ports:
             - containerPort: 80
           readinessProbe:

@@ -258,6 +258,31 @@ EC2/docker-compose (pas d'Ingress là-bas) : le frontend nginx y relaie
 désormais aussi `/api` vers le conteneur `backend`, au lieu de dépendre d'un
 port 5000 exposé séparément sur l'hôte.
 
+**Bug trouvé et corrigé après un déploiement EC2 (2026-09-13) :** un déploiement
+qui ne modifiait que le backend (image reconstruite, conteneur recréé avec une
+nouvelle IP Docker) sans toucher au frontend a cassé `/api/*` en `502` — nginx
+résout `proxy_pass` **une seule fois au démarrage** par défaut, donc le
+frontend (resté en place, non redémarré) gardait en cache l'ancienne IP,
+maintenant morte. Corrigé avec un `resolver` + une variable dans `proxy_pass`
+(force une résolution DNS à chaque requête), configuré via le mécanisme
+officiel de l'image `nginx:alpine` (`NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1` →
+variable `NGINX_LOCAL_RESOLVERS` lue depuis `/etc/resolv.conf`, portable entre
+Docker Compose et Kubernetes — préféré à une IP de résolveur codée en dur type
+`127.0.0.11`, spécifique à Docker et invalide sous Kubernetes). Piège annexe
+rencontré en cours de route : avec une variable dans `proxy_pass`, nginx ne
+réécrit **pas** le préfixe de location (`/api/`) — y répéter `/api/`
+provoquait un double préfixe et un 404 côté Flask ; corrigé en laissant nginx
+transmettre `$request_uri` tel quel. Et en Kubernetes spécifiquement : le
+`resolver` nginx ne suit pas les domaines de recherche de `/etc/resolv.conf`
+(contrairement à la résolution système) — `backend` seul échouait
+(`could not be resolved`), il faut le FQDN complet du Service
+(`backend.default.svc.cluster.local`, surchargé via `BACKEND_HOST` dans
+`k8s/frontend.yaml`). **Vérifié dans les deux environnements** : recréer le
+pod/conteneur backend sans toucher au frontend renvoie bien `200` sur
+`/api/health` après re-résolution (testé sur Minikube avec `kubectl delete
+pod -l app=backend`, et en local avec `docker rm -f`+`docker run` d'un nouveau
+conteneur backend).
+
 ## Infrastructure as Code (Terraform)
 
 Fichiers dans [`terraform/`](terraform/) — reprend en code l'instance EC2 et son

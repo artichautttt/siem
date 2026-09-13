@@ -6,8 +6,24 @@
 server {
     listen 80;
 
+    # nginx résout proxy_pass une seule fois au démarrage par défaut : si le
+    # conteneur backend est recréé (nouvelle IP) sans que le frontend le soit
+    # aussi, les requêtes échouent en 502 jusqu'à un redémarrage manuel du
+    # frontend (rencontré en pratique lors d'un déploiement backend-only sur
+    # EC2). NGINX_LOCAL_RESOLVERS est exporté par le script d'entrée officiel
+    # de l'image nginx:alpine (15-local-resolvers.envsh, activé via la
+    # variable NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1 dans le Dockerfile) à partir
+    # de /etc/resolv.conf — portable entre Docker Compose (DNS intégré
+    # Docker) et Kubernetes (kube-dns), contrairement à une IP codée en dur.
+    resolver ${NGINX_LOCAL_RESOLVERS} valid=10s;
+
     location /api/ {
-        proxy_pass http://${BACKEND_HOST}/api/;
+        # Avec une variable dans proxy_pass, nginx ne réécrit pas le préfixe
+        # de location : le $request_uri original (ex. /api/health) est
+        # transmis tel quel — ne PAS répéter "/api/" ici, ça doublerait le
+        # préfixe et cassait le routage (testé : 404 côté Flask).
+        set $backend_upstream http://${BACKEND_HOST};
+        proxy_pass $backend_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
