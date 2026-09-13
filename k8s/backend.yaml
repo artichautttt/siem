@@ -14,6 +14,10 @@ metadata:
   name: backend
 spec:
   replicas: 1
+  strategy:
+    # PVC ReadWriteOnce (le fichier SQLite) : voir la même remarque dans
+    # k8s/monitoring/prometheus.yaml sur le rolling update.
+    type: Recreate
   selector:
     matchLabels:
       app: backend

@@ -14,6 +14,12 @@ metadata:
   name: prometheus
 spec:
   replicas: 1
+  strategy:
+    # Le PVC est ReadWriteOnce : un rolling update tenterait de monter le
+    # volume depuis le nouveau pod avant que l'ancien ne le libère et
+    # échouerait ("lock DB directory: resource temporarily unavailable").
+    # Recreate arrête l'ancien pod avant de créer le nouveau.
+    type: Recreate
   selector:
     matchLabels:
       app: prometheus

@@ -362,12 +362,31 @@ Vérifié : suppression manuelle du pod (`kubectl delete pod -l app=prometheus`)
 (`ls /prometheus/wal` identique avant/après), confirmant que l'historique des
 métriques survit bien à un redémarrage.
 
+**Alertmanager (ajouté le 2026-09-13) :** déployé sur le même cluster
+(`k8s/monitoring/alertmanager.yaml`), câblé à Prometheus via
+`alerting.alertmanagers` dans la config Prometheus. Le receiver configuré
+pointe vers `alert-sink` (`k8s/monitoring/alert-sink.yaml`, image
+`mendhak/http-https-echo`), un récepteur webhook de démonstration qui loggue
+chaque notification reçue — à remplacer par un vrai récepteur (email/Slack/
+PagerDuty) en usage réel. **Vérifié de bout en bout :** `up{job="backend"}` →
+0 (`kubectl scale deploy/backend --replicas=0`) → règle `BackendDown` passe à
+`firing` → Alertmanager envoie le webhook → `kubectl logs deploy/alert-sink`
+confirme la réception d'un `POST /webhook HTTP/1.1 200` avec le payload complet
+de l'alerte (`alertname: BackendDown`, labels, annotations).
+
+**Note technique (rencontrée pendant ce test) :** les `Deployment` `backend` et
+`prometheus` montent chacun un `PersistentVolumeClaim` en `ReadWriteOnce`. Avec
+la stratégie de déploiement par défaut (`RollingUpdate`), un `kubectl apply`
+qui modifie le pod tente de démarrer le nouveau avant d'arrêter l'ancien, et
+échoue à monter le volume déjà pris (`lock DB directory: resource temporarily
+unavailable` côté Prometheus). Corrigé en passant les deux `Deployment` en
+stratégie `Recreate`.
+
 **Limites actuelles :**
-- Pas d'Alertmanager déployé : les règles Prometheus passent bien à `firing`
-  (visible dans l'UI Prometheus), mais aucune notification n'est envoyée
-  (email/Slack) — ce serait l'étape suivante pour une alerte "actionnable".
 - Dashboard limité à 4 panels de base ; pas encore de vue dédiée par règle de
   détection ou par IP source.
+- Le récepteur Alertmanager est un webhook de démonstration (logs uniquement),
+  pas une vraie destination de notification (email/Slack).
 
 ## Limites connues
 
