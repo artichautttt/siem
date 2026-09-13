@@ -298,13 +298,26 @@ limites du Free Tier (fichier de quelques Ko, très loin des 5 Go inclus).
 Pas de verrouillage DynamoDB à ce stade (usage solo, pas de risque de
 state lock concurrent pour l'instant).
 
+**Utilisateur IAM dédié (ajouté le 2026-09-13) :** Terraform tournait jusqu'ici
+avec une clé d'accès du compte **root**. Remplacé par un utilisateur IAM
+dédié `mini-siem-terraform`, avec seulement deux politiques : `AmazonEC2FullAccess`
+(gérée AWS) et une politique inline scopée au seul bucket d'état
+(`s3:ListBucket`/`GetObject`/`PutObject`/`DeleteObject` restreints à
+`mini-siem-tfstate-579661925343`). Aucun droit IAM (impossible de créer
+d'autres utilisateurs ou de toucher aux credentials root). Vérifié avant
+suppression : `terraform plan` avec les seules nouvelles credentials renvoie
+`No changes` (lecture du state S3 + de l'infra EC2/VPC OK). **La clé root a
+ensuite été supprimée** (`aws iam delete-access-key`) — confirmé morte via un
+appel `sts get-caller-identity` qui renvoie `InvalidClientTokenId`.
+
 **Limites actuelles :**
 - Le nom et l'AMI/subnet de l'instance sont volontairement figés sur les valeurs
   déjà existantes (les changer forcerait Terraform à recréer la ressource) —
   ce n'est donc pas encore un module 100 % reproductible from scratch sur un
   compte AWS vierge sans adaptation des variables.
-- Les credentials AWS (clé root du compte, faute d'utilisateur IAM dédié à ce
-  stade) sont configurés localement via `aws configure`, jamais commités.
+- `AmazonEC2FullAccess` reste une politique large (tout EC2, pas seulement
+  cette instance) — suffisant pour un projet solo, à restreindre avec une
+  politique sur-mesure (ARN de ressource explicite) pour un usage en équipe.
 
 ## Monitoring (Prometheus + Grafana, sur le même cluster Minikube)
 
