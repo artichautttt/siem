@@ -286,13 +286,23 @@ matches the configuration.` L'application est restée accessible tout du long
 (`/api/health` et le frontend ont continué à répondre `200` pendant et après
 l'apply) et le port 80 est bien fermé (`connection timeout` vérifié après coup).
 
+**State distant S3 (ajouté le 2026-09-13) :** le fichier d'état est maintenant
+stocké dans un bucket S3 dédié (`mini-siem-tfstate-579661925343`, région
+`eu-north-1`), créé hors Terraform (problème de l'œuf et de la poule classique
+pour un backend) via l'AWS CLI, avec **versioning activé**, **chiffrement par
+défaut (AES256)** et **accès public entièrement bloqué**
+(`put-public-access-block`). Migré avec `terraform init -migrate-state` ;
+vérifié que le fichier existe bien sur S3 (`aws s3 ls`) et qu'un `terraform
+plan` exécuté juste après renvoie toujours `No changes`. Reste dans les
+limites du Free Tier (fichier de quelques Ko, très loin des 5 Go inclus).
+Pas de verrouillage DynamoDB à ce stade (usage solo, pas de risque de
+state lock concurrent pour l'instant).
+
 **Limites actuelles :**
 - Le nom et l'AMI/subnet de l'instance sont volontairement figés sur les valeurs
   déjà existantes (les changer forcerait Terraform à recréer la ressource) —
   ce n'est donc pas encore un module 100 % reproductible from scratch sur un
   compte AWS vierge sans adaptation des variables.
-- Pas de backend d'état distant (le fichier `terraform.tfstate` reste local,
-  non commité — voir `.gitignore`) : pas de state partagé en équipe à ce stade.
 - Les credentials AWS (clé root du compte, faute d'utilisateur IAM dédié à ce
   stade) sont configurés localement via `aws configure`, jamais commités.
 
