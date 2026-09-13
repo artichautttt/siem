@@ -7,6 +7,7 @@ from routes.logs      import logs_bp
 from routes.alerts    import alerts_bp
 from routes.stats     import stats_bp
 from routes.detection import detection_bp
+from routes.wazuh     import wazuh_bp
 
 app = Flask(__name__)
 CORS(app, origins=CORS_ORIGINS)
@@ -16,6 +17,7 @@ app.register_blueprint(logs_bp,      url_prefix="/api")
 app.register_blueprint(alerts_bp,    url_prefix="/api")
 app.register_blueprint(stats_bp,     url_prefix="/api")
 app.register_blueprint(detection_bp, url_prefix="/api")
+app.register_blueprint(wazuh_bp,     url_prefix="/api")
 
 
 @app.route("/api/health", methods=["GET"])

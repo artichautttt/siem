@@ -2,6 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../environments/environment';
+import { WazuhService, WazuhAlert } from '../services/wazuh.service';
 
 interface Alert {
   id:          number;
@@ -32,15 +33,26 @@ export class AlertsComponent implements OnInit {
   detecting  = false;
   showResolved = false;
 
+  wazuhAlerts:    WazuhAlert[] = [];
+  wazuhAvailable  = true;
+
   private base = environment.apiUrl;
   private authHeaders = new HttpHeaders({ 'X-API-Key': environment.apiKey });
 
-  constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
+  constructor(private http: HttpClient, private wazuh: WazuhService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.loadAlerts();
     this.loadRiskScore();
-    setInterval(() => { this.loadAlerts(); this.loadRiskScore(); }, 15000);
+    this.loadWazuhAlerts();
+    setInterval(() => { this.loadAlerts(); this.loadRiskScore(); this.loadWazuhAlerts(); }, 15000);
+  }
+
+  loadWazuhAlerts(): void {
+    this.wazuh.getAlerts(20).subscribe({
+      next: res => { this.wazuhAlerts = res.alerts; this.wazuhAvailable = res.available; this.cdr.detectChanges(); },
+      error: () => { this.wazuhAlerts = []; this.wazuhAvailable = false; this.cdr.detectChanges(); },
+    });
   }
 
   loadAlerts(): void {

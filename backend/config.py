@@ -38,6 +38,16 @@ CORS_ORIGINS = [
 # impérativement en environnement partagé/prod via la variable API_KEY.
 API_KEY = os.environ.get("API_KEY", "change-me")
 
+# ── Intégration Wazuh (optionnelle) ────────────────────────────────────────────
+# Le Wazuh Indexer (OpenSearch) expose les alertes réelles sur son API HTTPS.
+# Instance déployée séparément (voir wazuh-docker/single-node), non gérée par
+# le docker-compose de ce projet.
+WAZUH_INDEXER_URL = os.environ.get("WAZUH_INDEXER_URL", "https://localhost:9200")
+WAZUH_USER         = os.environ.get("WAZUH_USER", "admin")
+WAZUH_PASSWORD     = os.environ.get("WAZUH_PASSWORD", "SecretPassword")
+# Certificat auto-signé par défaut sur une instance locale de démo -> désactivé.
+WAZUH_VERIFY_SSL   = os.environ.get("WAZUH_VERIFY_SSL", "False").lower() in {"1", "true", "yes"}
+
 
 # ── Constantes métier partagées ────────────────────────────────────────────────
 
@@ -115,3 +125,15 @@ MITRE_MAPPING = {
         "tactic":         "Reconnaissance",
     },
 }
+
+# Mapping du niveau de règle Wazuh (0-15, voir doc Wazuh "Rule classification")
+# vers les 4 niveaux de sévérité utilisés dans ce projet, pour un affichage
+# cohérent entre alertes internes et alertes Wazuh.
+def wazuh_level_to_severity(level: int) -> str:
+    if level >= 12:
+        return "CRITICAL"
+    if level >= 7:
+        return "HIGH"
+    if level >= 4:
+        return "MEDIUM"
+    return "LOW"

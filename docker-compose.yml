@@ -11,6 +11,15 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:4200}
       - API_KEY=${API_KEY:-change-me}
       - FLASK_DEBUG=${FLASK_DEBUG:-False}
+      # Wazuh tourne dans des conteneurs séparés (voir wazuh-docker/single-node),
+      # non gérés par ce compose : host.docker.internal permet au backend de
+      # joindre le Wazuh Indexer exposé sur l'hôte (port 9200).
+      - WAZUH_INDEXER_URL=${WAZUH_INDEXER_URL:-https://host.docker.internal:9200}
+      - WAZUH_USER=${WAZUH_USER:-admin}
+      - WAZUH_PASSWORD=${WAZUH_PASSWORD:-SecretPassword}
+      - WAZUH_VERIFY_SSL=${WAZUH_VERIFY_SSL:-False}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
       interval: 30s

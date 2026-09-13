@@ -20,12 +20,15 @@ describe('AlertsComponent', () => {
     const fixture = TestBed.createComponent(AlertsComponent);
     fixture.detectChanges();
 
-    // ngOnInit déclenche loadAlerts() et loadRiskScore()
+    // ngOnInit déclenche loadAlerts(), loadRiskScore() et loadWazuhAlerts()
     httpMock.expectOne(req => req.url.endsWith('/alerts?resolved=0')).flush({
       alerts: [], total: 0, open: 0, resolved: 0,
     });
     httpMock.expectOne(req => req.url.includes('/detect/score')).flush({
       score: 0, level: 'NORMAL', events: 0,
+    });
+    httpMock.expectOne(req => req.url.includes('/wazuh/alerts')).flush({
+      alerts: [], total: 0, available: true,
     });
 
     fixture.detectChanges();
@@ -43,6 +46,9 @@ describe('AlertsComponent', () => {
     });
     httpMock.expectOne(req => req.url.includes('/detect/score')).flush({
       score: 0, level: 'NORMAL', events: 0,
+    });
+    httpMock.expectOne(req => req.url.includes('/wazuh/alerts')).flush({
+      alerts: [], total: 0, available: true,
     });
     fixture.detectChanges();
 

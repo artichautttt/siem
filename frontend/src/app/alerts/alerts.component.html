@@ -47,3 +47,30 @@
     </div>
   }
 </div>
+
+<h3 style="margin: 24px 0 12px; color: #94a3b8; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em;">Alertes Wazuh</h3>
+<div class="alerts-list">
+  @if (!wazuhAvailable) {
+    <div class="empty">Instance Wazuh injoignable — vérifier que le conteneur wazuh-indexer tourne.</div>
+  } @else if (wazuhAlerts.length === 0) {
+    <div class="empty">Aucune alerte Wazuh récente</div>
+  }
+  @for (alert of wazuhAlerts; track alert.id) {
+    <div class="alert-card">
+      <div class="alert-left">
+        <span class="badge" [class]="severityClass(alert.severity)">{{ alert.severity }}</span>
+        <div class="alert-info">
+          <div class="alert-rule">{{ alert.rule_name }}</div>
+          <div class="alert-meta">
+            <span class="mono">{{ alert.agent }}</span>
+            @if (alert.src_ip) { &nbsp;·&nbsp;<span class="mono">{{ alert.src_ip }}</span> }
+            &nbsp;·&nbsp;
+            {{ alert.timestamp | slice:0:19 }}
+            &nbsp;·&nbsp; niveau {{ alert.level }}
+          </div>
+        </div>
+      </div>
+      <span class="resolved-tag">Wazuh</span>
+    </div>
+  }
+</div>

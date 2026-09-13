@@ -147,6 +147,33 @@ cd frontend
 ng test
 ```
 
+## CI/CD
+
+Pipeline GitHub Actions défini dans [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml).
+
+**Déclencheurs :**
+- `push` sur `main` : exécute les tests puis déploie automatiquement
+- `pull_request` vers `main` : exécute les tests uniquement (pas de déploiement)
+
+**Jobs :**
+1. `backend-tests` — installe les dépendances Python 3.11, lance `pytest` (16 tests)
+2. `frontend-tests` — installe les dépendances Node 20, lance `ng test --no-watch` (7 tests)
+3. `deploy` — ne s'exécute que si les deux jobs de tests précédents réussissent **et** que le déclencheur est un push sur `main` (pas sur une pull request). Se connecte en SSH à l'instance EC2 cible et exécute `git pull` + `docker compose up -d --build`.
+
+**Cible de déploiement :** une instance EC2 unique (`t2.micro`, Ubuntu 22.04, éligible AWS Free Tier), avec Docker et Docker Compose installés manuellement une fois. Le pipeline ne provisionne pas l'infrastructure (pas de Terraform à ce stade) : il se contente de mettre à jour le code et de reconstruire les conteneurs sur une instance déjà existante, via SSH (action [`appleboy/ssh-action`](https://github.com/appleboy/ssh-action)).
+
+**Secrets GitHub requis** (Settings → Secrets and variables → Actions) :
+- `EC2_HOST` — IP publique de l'instance
+- `EC2_USER` — utilisateur SSH (`ubuntu`)
+- `EC2_SSH_KEY` — clé privée SSH associée à la paire de clés EC2
+
+**Configuration côté serveur :** un fichier `.env` (non versionné, contenant `API_KEY`/`CORS_ORIGINS` propres à l'instance) est présent directement dans `~/app/` sur l'EC2 — il n'est pas géré par le pipeline et doit être créé manuellement lors du premier déploiement.
+
+**Limites actuelles :**
+- Une seule instance, sans haute disponibilité ni rollback automatique en cas d'échec du déploiement.
+- Pas de registre d'images (le build Docker se fait directement sur l'instance cible).
+- Pas de HTTPS/reverse proxy en amont (accès direct sur les ports 4200/5000).
+
 ## Limites connues
 
 Ce projet est **pédagogique** et n'est pas destiné à un usage en production :
