@@ -354,12 +354,18 @@ kubectl port-forward svc/grafana 3000:3000      # http://localhost:3000 (admin /
   (`Brute Force SSH: 1`) — confirmant que le panel correspondant du dashboard
   affiche des données, pas un graphe vide
 
+**Stockage persistant (ajouté le 2026-09-13) :** Prometheus utilise désormais un
+`PersistentVolumeClaim` (`prometheus-data`, 1 Gi) monté sur `/prometheus`, avec
+`fsGroup: 65534` pour que le process non-root du conteneur puisse y écrire.
+Vérifié : suppression manuelle du pod (`kubectl delete pod -l app=prometheus`)
+→ le nouveau pod recréé par le Deployment retrouve les mêmes fichiers WAL
+(`ls /prometheus/wal` identique avant/après), confirmant que l'historique des
+métriques survit bien à un redémarrage.
+
 **Limites actuelles :**
 - Pas d'Alertmanager déployé : les règles Prometheus passent bien à `firing`
   (visible dans l'UI Prometheus), mais aucune notification n'est envoyée
   (email/Slack) — ce serait l'étape suivante pour une alerte "actionnable".
-- Pas de stockage persistant pour Prometheus (pas de `PersistentVolumeClaim`) :
-  l'historique des métriques est perdu si le pod redémarre.
 - Dashboard limité à 4 panels de base ; pas encore de vue dédiée par règle de
   détection ou par IP source.
 
