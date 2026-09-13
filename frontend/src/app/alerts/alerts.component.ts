@@ -1,8 +1,9 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { WazuhService, WazuhAlert } from '../services/wazuh.service';
+import { AuthService } from '../services/auth.service';
 
 interface Alert {
   id:          number;
@@ -37,9 +38,13 @@ export class AlertsComponent implements OnInit {
   wazuhAvailable  = true;
 
   private base = environment.apiUrl;
-  private authHeaders = new HttpHeaders({ 'X-API-Key': environment.apiKey });
 
-  constructor(private http: HttpClient, private wazuh: WazuhService, private cdr: ChangeDetectorRef) {}
+  constructor(
+    private http: HttpClient,
+    private wazuh: WazuhService,
+    public auth: AuthService,
+    private cdr: ChangeDetectorRef,
+  ) {}
 
   ngOnInit(): void {
     this.loadAlerts();
@@ -74,7 +79,7 @@ export class AlertsComponent implements OnInit {
 
   runDetection(): void {
     this.detecting = true;
-    this.http.post<any>(`${this.base}/detect`, { window_minutes: 60 }, { headers: this.authHeaders }).subscribe({
+    this.http.post<any>(`${this.base}/detect`, { window_minutes: 60 }, { headers: this.auth.authHeader() }).subscribe({
       next: res => {
         this.detecting = false;
         this.loadAlerts();
@@ -86,10 +91,21 @@ export class AlertsComponent implements OnInit {
   }
 
   resolveAlert(id: number): void {
-    this.http.patch(`${this.base}/alerts/${id}/resolve`, {}, { headers: this.authHeaders }).subscribe({
+    this.http.patch(`${this.base}/alerts/${id}/resolve`, {}, { headers: this.auth.authHeader() }).subscribe({
       next: () => { this.loadAlerts(); this.cdr.detectChanges(); },
       error: err => console.error(err),
     });
+  }
+
+  deleteAlert(id: number): void {
+    this.http.delete(`${this.base}/alerts/${id}`, { headers: this.auth.authHeader() }).subscribe({
+      next: () => { this.loadAlerts(); this.cdr.detectChanges(); },
+      error: err => console.error(err),
+    });
+  }
+
+  logout(): void {
+    this.auth.logout();
   }
 
   toggleResolved(): void {

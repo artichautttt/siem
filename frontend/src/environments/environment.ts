@@ -1,11 +1,7 @@
-// Environnement de développement (ng serve)
-// Note sécurité : la clé API est embarquée dans le bundle JS et donc visible
-// de tout utilisateur du navigateur (devtools). C'est acceptable ici car le
-// projet est pédagogique et sans authentification utilisateur réelle ; ne pas
-// reproduire ce pattern pour protéger de vraies données sensibles.
-// Doit correspondre à API_KEY côté backend (voir backend/.env.example).
+// Environnement de développement (ng serve). L'authentification se fait
+// désormais par login JWT (voir services/auth.service.ts) — plus de clé API
+// embarquée dans le bundle.
 export const environment = {
   production: false,
   apiUrl: 'http://localhost:5000/api',
-  apiKey: 'change-me',
 };

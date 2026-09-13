@@ -107,19 +107,25 @@ def test_critical_service_not_detected_on_allow(app_context):
     assert engine.rule_critical_service() == []
 
 
-# ── Règle 5 : IP malveillante connue ───────────────────────────────────────────
-def test_known_bad_ip_detected(app_context):
+# ── Règle 5 : IP malveillante connue (threat intel externe) ───────────────────
+# get_known_bad_ips() est mocké : un test unitaire ne doit pas dépendre d'un
+# appel réseau réel vers le flux externe (lenteur, indisponibilité, IP qui
+# changent constamment). L'appel réseau réel est couvert séparément par un
+# test dédié à threat_intel.py (test_threat_intel.py).
+def test_known_bad_ip_detected(app_context, monkeypatch):
     import database, detector
-    from config import KNOWN_BAD_IPS
-    bad_ip = next(iter(KNOWN_BAD_IPS))
+    bad_ip = "9.9.9.9"
+    monkeypatch.setattr(detector, "get_known_bad_ips", lambda: ({bad_ip}, "mock-source"))
     insert_log(database, src_ip=bad_ip)
     engine = detector.DetectionEngine(window_minutes=60)
     alerts = engine.rule_known_bad_ip()
     assert len(alerts) == 1
     assert alerts[0].src_ip == bad_ip
+    assert "mock-source" in alerts[0].description
 
 
-def test_known_bad_ip_not_detected_when_absent(app_context):
+def test_known_bad_ip_not_detected_when_absent(app_context, monkeypatch):
     import detector
+    monkeypatch.setattr(detector, "get_known_bad_ips", lambda: ({"9.9.9.9"}, "mock-source"))
     engine = detector.DetectionEngine(window_minutes=60)
     assert engine.rule_known_bad_ip() == []

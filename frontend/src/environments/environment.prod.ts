@@ -6,5 +6,4 @@
 export const environment = {
   production: true,
   apiUrl: '/api',
-  apiKey: 'change-me',
 };

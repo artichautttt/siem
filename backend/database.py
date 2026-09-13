@@ -16,8 +16,11 @@ import psycopg2
 import psycopg2.errors
 import psycopg2.extras
 
+from werkzeug.security import generate_password_hash
+
 from config import (
     POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD,
+    ADMIN_USERNAME, ADMIN_PASSWORD,
 )
 
 
@@ -143,9 +146,29 @@ def init_db():
                 resolved    INTEGER DEFAULT 0           -- 0 = ouvert, 1 = résolu
             )
         """)
+
+        # Comptes utilisateurs pour l'authentification JWT multi-rôle.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id            SERIAL PRIMARY KEY,
+                username      TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                role          TEXT NOT NULL DEFAULT 'analyst'  -- 'analyst' / 'admin'
+            )
+        """)
         conn.commit()
     except psycopg2.errors.DuplicateTable:
         conn.rollback()
+
+    # Compte admin par défaut, créé une seule fois si la table est vide.
+    count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    if count == 0:
+        conn.execute(
+            "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+            (ADMIN_USERNAME, generate_password_hash(ADMIN_PASSWORD), "admin"),
+        )
+        conn.commit()
+        print(f"[DB] Compte admin initial créé : {ADMIN_USERNAME}")
 
     conn.close()
     print(f"[DB] Base de données initialisée -> postgresql://{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}")

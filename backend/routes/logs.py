@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from database import get_db
 from datetime import datetime
-from auth import require_api_key
+from auth import require_role
 
 logs_bp = Blueprint("logs", __name__)
 
@@ -12,7 +12,7 @@ VALID_ACTIONS    = {"ALLOW", "DENY"}
 
 # ── POST /api/logs ─────────────────────────────────────────────────────────────
 @logs_bp.route("/logs", methods=["POST"])
-@require_api_key
+@require_role("analyst", "admin")
 def create_log():
     """
     Reçoit un événement réseau et le stocke.

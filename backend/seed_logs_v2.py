@@ -3,7 +3,7 @@ seed_logs_v2.py — Générateur amélioré utilisant LogGenerator + LogParser.
 Remplace seed_logs.py du Jour 1.
 
 Usage :
-    python seed_logs_v2.py          # 100 logs réalistes
+    python seed_logs_v2.py          # 100 logs réalistes (login admin requis)
     python seed_logs_v2.py --n 200  # 200 logs
     python seed_logs_v2.py --local  # sans API, directement en DB
 """
@@ -12,9 +12,16 @@ import argparse
 from database import get_db
 from generator import LogGenerator
 from parser import LogParser
-from config import API_KEY
+from config import ADMIN_USERNAME, ADMIN_PASSWORD
 
-API_URL = "http://localhost:5000/api/logs"
+API_URL   = "http://localhost:5000/api/logs"
+LOGIN_URL = "http://localhost:5000/api/auth/login"
+
+
+def _get_token() -> str:
+    r = requests.post(LOGIN_URL, json={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD}, timeout=3)
+    r.raise_for_status()
+    return r.json()["token"]
 
 
 def seed_via_api(n: int):
@@ -25,7 +32,7 @@ def seed_via_api(n: int):
 
     print(f"[seed] Envoi de {len(logs)} logs vers {API_URL}")
     success = errors = 0
-    headers = {"X-API-Key": API_KEY}
+    headers = {"Authorization": f"Bearer {_get_token()}"}
 
     for log in logs:
         parsed, ok, err = parser.parse(log)

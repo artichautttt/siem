@@ -37,10 +37,18 @@ CORS_ORIGINS = [
     if o.strip()
 ]
 
-# Clé API utilisée pour protéger les endpoints d'écriture (header X-API-Key).
-# Valeur par défaut fournie UNIQUEMENT pour le développement local — à changer
-# impérativement en environnement partagé/prod via la variable API_KEY.
-API_KEY = os.environ.get("API_KEY", "change-me")
+# ── Authentification JWT multi-rôle ────────────────────────────────────────────
+# Remplace l'ancienne clé API unique. JWT_SECRET signe les tokens émis par
+# POST /api/auth/login — valeur par défaut UNIQUEMENT pour le développement
+# local, à changer impérativement en environnement partagé/prod.
+JWT_SECRET = os.environ.get("JWT_SECRET", "change-me-jwt-secret")
+JWT_EXPIRY_HOURS = int(os.environ.get("JWT_EXPIRY_HOURS", 8))
+
+# Compte admin créé automatiquement au premier démarrage si la table users
+# est vide (voir database.py::init_db). À changer impérativement au premier
+# lancement en environnement partagé/prod.
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "change-me")
 
 # ── Intégration Wazuh (optionnelle) ────────────────────────────────────────────
 # Le Wazuh Indexer (OpenSearch) expose les alertes réelles sur son API HTTPS.
@@ -53,10 +61,19 @@ WAZUH_PASSWORD     = os.environ.get("WAZUH_PASSWORD", "SecretPassword")
 WAZUH_VERIFY_SSL   = os.environ.get("WAZUH_VERIFY_SSL", "False").lower() in {"1", "true", "yes"}
 
 
+# ── Threat Intelligence externe ────────────────────────────────────────────────
+# Flux public (aucune authentification requise) : IP ayant récemment attaqué
+# des serveurs/honeypots, signalées par la communauté (voir threat_intel.py).
+THREAT_INTEL_URL = os.environ.get(
+    "THREAT_INTEL_URL", "https://lists.blocklist.de/lists/all.txt"
+)
+THREAT_INTEL_TTL_SECONDS = int(os.environ.get("THREAT_INTEL_TTL_SECONDS", 3600))
+
 # ── Constantes métier partagées ────────────────────────────────────────────────
 
-# IPs connues comme malveillantes (liste simplifiée pour la démo pédagogique).
-KNOWN_BAD_IPS = {
+# Repli statique si le flux externe est indisponible (réseau, timeout, format
+# inattendu) — la détection ne doit jamais casser faute de threat intel externe.
+KNOWN_BAD_IPS_FALLBACK = {
     "45.33.32.156",   # Shodan scanner
     "198.51.100.5",   # Test range (RFC 5737)
     "203.0.113.42",   # Test range (RFC 5737)

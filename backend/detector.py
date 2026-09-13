@@ -17,13 +17,13 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 
 from config import (
-    KNOWN_BAD_IPS,
     CRITICAL_PORTS,
     HIGH_PORTS,
     CRITICAL_SERVICE_NAMES,
     MITRE_MAPPING,
 )
 from database import get_db
+from threat_intel import get_known_bad_ips
 
 
 @dataclass
@@ -170,16 +170,24 @@ class DetectionEngine:
             ))
         return alerts
 
-    # ── Règle 5 : IP malveillante connue ──────────────────────────────────────
+    # ── Règle 5 : IP connue malveillante (threat intel externe) ────────────────
     def rule_known_bad_ip(self) -> list[Alert]:
+        # Le flux externe contient des dizaines de milliers d'IP (voir
+        # threat_intel.py) : on interroge donc les IP source *observées* dans
+        # la fenêtre (généralement peu nombreuses) et on teste leur
+        # appartenance à l'ensemble (lookup O(1)), plutôt que l'inverse.
+        bad_ips, source = get_known_bad_ips()
+
+        rows = self._fetch("""
+            SELECT src_ip, COUNT(*) as cnt FROM logs
+            WHERE timestamp >= ?
+            GROUP BY src_ip
+        """, (self.since,))
+
         alerts = []
-        for ip in KNOWN_BAD_IPS:
-            rows = self._fetch("""
-                SELECT COUNT(*) as cnt FROM logs
-                WHERE src_ip = ? AND timestamp >= ?
-            """, (ip, self.since))
-            cnt = rows[0]["cnt"] if rows else 0
-            if cnt == 0:
+        for r in rows:
+            ip = r["src_ip"]
+            if ip not in bad_ips:
                 continue
             if self._alert_exists("IP Malveillante Connue", ip):
                 continue
@@ -187,7 +195,7 @@ class DetectionEngine:
                 rule_name   = "IP Malveillante Connue",
                 src_ip      = ip,
                 severity    = "HIGH",
-                description = f"Activité détectée depuis IP malveillante connue {ip} — {cnt} événements",
+                description = f"Activité détectée depuis IP malveillante connue {ip} — {r['cnt']} événements (source : {source})",
                 timestamp   = datetime.utcnow().isoformat(),
                 mitre       = MITRE_MAPPING.get("IP Malveillante Connue", {}),
             ))

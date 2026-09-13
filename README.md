@@ -97,23 +97,43 @@ npm install
 ng serve
 ```
 
-### Authentification API
+### Authentification JWT multi-rôle (2026-09-13)
 
-Les endpoints d'écriture (`POST /api/logs`, `POST /api/alerts`, `PATCH
-/api/alerts/<id>/resolve`, `DELETE /api/alerts/<id>`, `POST /api/detect`)
-exigent un header `X-API-Key` correspondant à la variable d'environnement
-`API_KEY`. Une requête sans clé, ou avec une clé invalide, reçoit une réponse
-`401 { "error": "..." }`. Les endpoints de lecture (`GET /api/logs`,
-`GET /api/alerts`, `GET /api/stats*`, `GET /api/search`) restent ouverts pour
-faciliter la démonstration.
+Remplace l'ancienne clé API unique partagée. Deux rôles :
+- **analyst** : ingérer des logs (`POST /api/logs`), lancer une détection
+  (`POST /api/detect`, `POST /api/detect/ml`), résoudre des alertes
+- **admin** : tout ce que peut faire *analyst*, plus supprimer des alertes
+  (`DELETE /api/alerts/<id>`) et gérer les comptes (`/api/auth/users`)
 
-Exemple :
+Un compte admin est créé automatiquement au premier démarrage (variables
+`ADMIN_USERNAME`/`ADMIN_PASSWORD`, **à changer** avant tout usage partagé).
+Les endpoints de lecture (`GET /api/logs`, `GET /api/alerts`, `GET
+/api/stats*`, `GET /api/search`) restent ouverts pour faciliter la démo.
+
 ```bash
+# 1. Connexion -> token JWT (valide JWT_EXPIRY_HOURS, défaut 8h)
+curl -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "change-me"}'
+
+# 2. Utiliser le token
 curl -X POST http://localhost:5000/api/detect \
-  -H "X-API-Key: change-me" \
+  -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"window_minutes": 60}'
 ```
+
+Le frontend Angular a un écran de connexion (`app/login/`) ; le token est
+stocké en `localStorage` et joint automatiquement aux requêtes protégées
+(`services/auth.service.ts`). Le bouton "Supprimer" sur une alerte n'apparaît
+que pour un compte `admin`.
+
+**Testé et vérifié** : 3 nouveaux tests unitaires (login refusé/accepté,
+rôle `analyst` bloqué en `403` sur `DELETE /api/alerts`), et un test manuel
+complet dans un vrai navigateur (Chrome piloté) : connexion → dashboard
+affiché → clic "Lancer la détection" avec le JWT (pas de 401/403 en
+console) → déconnexion → retour automatique à l'écran de connexion,
+`localStorage` vidé.
 
 ## Détection & MITRE ATT&CK
 
@@ -131,10 +151,70 @@ détaillés ci-dessous chacun sur sa propre ligne.
 | Accès Telnet Critique           | DENY sur le port 23 (Telnet)                              | CRITICAL | T1021 — Remote Services (Lateral Movement) |
 | Accès SMB Critique              | DENY sur le port 445 (SMB)                                 | CRITICAL | T1021.002 — Remote Services: SMB/Windows Admin Shares |
 | Accès RDP Critique              | DENY sur le port 3389 (RDP)                                | CRITICAL | T1021.001 — Remote Services: RDP |
-| IP Malveillante Connue          | Trafic observé depuis une IP de la liste `KNOWN_BAD_IPS`   | HIGH     | T1590 — Gather Victim Network Information (Reconnaissance) |
+| IP Malveillante Connue          | IP observée dans le flux de threat intel externe (voir ci-dessous) | HIGH | T1590 — Gather Victim Network Information (Reconnaissance) |
 
 Un exemple complet d'analyse d'incident (alerte Brute Force SSH) est disponible
 dans [`docs/rapport-incident-exemple.md`](docs/rapport-incident-exemple.md).
+
+## Threat Intelligence externe (2026-09-13)
+
+La règle "IP Malveillante Connue" utilisait une liste statique de 3 IP
+(`KNOWN_BAD_IPS`, conservée comme repli). Remplacée par un flux public
+réellement interrogé : [blocklist.de](https://lists.blocklist.de/lists/all.txt)
+"all.txt" — IP ayant récemment attaqué des serveurs/honeypots, signalées par
+la communauté, **aucune authentification requise**, ~28 000 IP en pratique.
+
+**Implémentation** ([`backend/threat_intel.py`](backend/threat_intel.py)) :
+- Mis en cache en mémoire process avec un TTL (`THREAT_INTEL_TTL_SECONDS`,
+  défaut 1h) pour éviter de retélécharger ~28 000 lignes à chaque détection
+- Repli automatique sur la liste statique si le flux est indisponible
+  (réseau, timeout, format inattendu) — la détection ne doit jamais casser
+  faute de threat intel externe
+- `detector.py::rule_known_bad_ip` interroge les IP *observées* dans la
+  fenêtre analysée (généralement peu nombreuses) et teste leur appartenance
+  à l'ensemble (lookup O(1)), plutôt que l'inverse (boucler sur ~28 000 IP
+  contre la base à chaque exécution, bien trop lent)
+- `GET /api/threat-intel/status` expose la source utilisée et le nombre d'IP
+
+**Testé et vérifié** : `GET /api/threat-intel/status` renvoie
+`{"count": 28078, "source": "https://lists.blocklist.de/lists/all.txt", "using_fallback": false}`
+en conditions réelles (Minikube, via l'Ingress) ; une vraie IP piochée dans le
+flux du jour, injectée dans un log puis `POST /api/detect`, déclenche
+effectivement l'alerte "IP Malveillante Connue" citant cette IP et la source.
+3 tests automatisés couvrent le fetch réel, le cache (mock vérifiant qu'aucun
+appel réseau n'est refait), et le repli sur panne réseau simulée
+(`backend/tests/test_threat_intel.py`).
+
+## Détection d'anomalies par ML (2026-09-13)
+
+Complète les 5 règles à seuils fixes avec une approche statistique :
+[`backend/ml_detector.py`](backend/ml_detector.py) utilise un
+`IsolationForest` (scikit-learn) qui apprend un profil "normal" de
+comportement par IP source sur la fenêtre analysée (nombre d'événements,
+ports distincts ciblés, volume de données, ratio de refus), puis signale les
+IP dont le profil s'écarte significativement des autres.
+
+```bash
+curl -X POST http://localhost:5000/api/detect/ml \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"window_minutes": 60, "contamination": 0.1}'
+```
+
+**Limite assumée** : modèle non supervisé entraîné à la volée sur chaque
+fenêtre (pas un modèle pré-entraîné et versionné) — cohérent avec l'échelle
+pédagogique du projet, pas la manière dont ça se ferait en production
+(entraînement offline périodique, modèle sauvegardé, dérive surveillée). Un
+garde-fou (`MIN_SAMPLES = 5`) évite de renvoyer un résultat statistiquement
+non fiable quand trop peu d'IP distinctes sont présentes dans la fenêtre.
+
+**Testé et vérifié** : scénario avec 6 IP au comportement similaire (peu
+d'événements, un seul port, peu de volume) + 1 IP nettement différente
+(31-41 événements, autant de ports distincts, volume ×1000) — l'IP atypique
+est correctement isolée avec un score d'anomalie négatif, dans un conteneur
+Docker isolé puis en conditions réelles sur Minikube via l'Ingress. Vérifié
+aussi qu'avec moins de 5 IP distinctes, l'endpoint renvoie `0` alerte plutôt
+qu'un résultat statistiquement non fiable.
 
 ## Tests
 
@@ -491,25 +571,24 @@ Ce projet est **pédagogique** et n'est pas destiné à un usage en production :
 - Les logs sont générés/simulés (ou saisis via l'API) — il n'y a pas de vraie
   ingestion réseau (pas d'agent, pas de capture de trafic, pas de syslog).
 - Les règles de détection sont simples (seuils fixes, fenêtre glissante) et
-  ne remplacent pas un moteur de corrélation avancé.
-- L'authentification est une clé API unique partagée, sans gestion
-  d'utilisateurs, de rôles ni de rotation automatique.
+  ne remplacent pas un moteur de corrélation avancé ; le détecteur ML
+  (IsolationForest) reste un modèle non supervisé entraîné à la volée, pas un
+  modèle pré-entraîné/versionné (voir section dédiée).
+- Pas de gestion fine des rôles au-delà de `analyst`/`admin` (pas de
+  permissions par ressource), ni de rotation automatique des mots de passe.
 - Pas de chiffrement TLS configuré par défaut (à ajouter via un reverse proxy
   en déploiement réel).
-- Le frontend appelle directement l'API backend exposée sur son port ; il n'y
-  a pas de reverse proxy nginx pour `/api` dans l'image frontend actuelle.
 
 ## Pistes d'évolution
 
 - Intégration à un vrai SIEM/EDR (Wazuh, ELK/Elastic Security) pour une
-  ingestion et une corrélation à l'échelle.
+  ingestion et une corrélation à l'échelle (l'intégration Wazuh en lecture
+  existe déjà, voir plus haut — il s'agirait ici d'aller plus loin).
 - Alerting temps réel via WebSockets ou Server-Sent Events plutôt que du
   polling côté frontend.
-- Migration vers une base de données plus robuste (PostgreSQL, éventuellement
-  TimescaleDB pour les séries temporelles).
-- Authentification utilisateur multi-rôle (analyste / admin) avec JWT plutôt
-  qu'une clé API partagée.
-- Détection par apprentissage automatique (anomalies statistiques) en
-  complément des règles à seuils fixes.
-- Enrichissement des IP par des flux de threat intelligence externes
-  (réputation, géolocalisation) au lieu d'une liste statique.
+- Modèle ML pré-entraîné et versionné (au lieu d'un entraînement à la volée
+  à chaque fenêtre), avec surveillance de la dérive du modèle.
+- Enrichissement des IP par géolocalisation, en complément du flux de
+  réputation déjà en place.
+- TimescaleDB pour les séries temporelles (au-delà de la migration
+  PostgreSQL déjà faite).

@@ -17,6 +17,10 @@
     <button (click)="toggleResolved()" class="btn-toggle">
       @if (showResolved) { Masquer résolues } @else { Voir toutes }
     </button>
+    <span style="margin-left: auto; color: #94a3b8; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+      {{ auth.getUsername() }} ({{ auth.getRole() }})
+      <button (click)="logout()" class="btn-toggle">Déconnexion</button>
+    </span>
   </div>
 
 </div>
@@ -39,11 +43,16 @@
           </div>
         </div>
       </div>
-      @if (alert.resolved === 0) {
-        <button (click)="resolveAlert(alert.id)" class="btn-resolve">Résoudre</button>
-      } @else {
-        <span class="resolved-tag">Résolue</span>
-      }
+      <span style="display: flex; gap: 8px;">
+        @if (alert.resolved === 0) {
+          <button (click)="resolveAlert(alert.id)" class="btn-resolve">Résoudre</button>
+        } @else {
+          <span class="resolved-tag">Résolue</span>
+        }
+        @if (auth.isAdmin()) {
+          <button (click)="deleteAlert(alert.id)" class="btn-resolve" style="background: #7f1d1d;">Supprimer</button>
+        }
+      </span>
     </div>
   }
 </div>
