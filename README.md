@@ -250,6 +250,13 @@ Pipeline GitHub Actions défini dans [`.github/workflows/ci-cd.yml`](.github/wor
 
 **Configuration côté serveur :** un fichier `.env` (non versionné, contenant `API_KEY`/`CORS_ORIGINS` propres à l'instance) est présent directement dans `~/app/` sur l'EC2 — il n'est pas géré par le pipeline et doit être créé manuellement lors du premier déploiement.
 
+**Correction (2026-09-13) :** le script de déploiement SSH n'utilisait pas
+`set -e` — un `docker compose build` en échec (disque plein sur l'EC2, voir
+section Terraform) n'a pas fait échouer le step, et le job `deploy` a été
+rapporté `success` alors que les conteneurs n'avaient pas été recréés.
+`set -e` ajouté en première ligne du script pour que ce type d'échec
+partiel remonte désormais correctement.
+
 **Limites actuelles :**
 - Une seule instance, sans haute disponibilité ni rollback automatique en cas d'échec du déploiement.
 - Pas de registre d'images (le build Docker se fait directement sur l'instance cible).
@@ -374,7 +381,22 @@ subnet par défaut du compte, dans les limites du Free Tier (`t3.micro`).
 - `aws_security_group.mini_siem` — 3 règles ingress explicites : SSH (22),
   API backend (5000), frontend (4200), toutes en `0.0.0.0/0` ; egress ouvert
 - `aws_instance.mini_siem` — l'instance EC2 existante (`t3.micro`, Ubuntu,
-  volume racine 8 Go gp3)
+  volume racine **20 Go** gp3)
+
+**Incident réel et correction (2026-09-13) :** l'ajout de scikit-learn/numpy/
+scipy (détection ML, voir plus bas) a fait passer la taille de l'image backend
+au-delà de ce que le volume racine de 8 Go pouvait encaisser pendant le build
+— `docker compose build` a échoué (`No space left on device`) sur l'instance
+EC2, mais le pipeline CI/CD l'a rapporté comme `success` (le script SSH de
+déploiement n'utilise pas `set -e`, donc une commande qui échoue au milieu du
+script n'a pas fait échouer le step). Corrigé en deux temps : `terraform
+apply` pour passer `root_block_device.volume_size` de 8 à 20 Go (mise à jour
+en place, `0 to add, 1 to change, 0 to destroy`, reste dans les 30 Go inclus
+au Free Tier), puis `growpart` + `resize2fs` sur l'instance pour étendre la
+partition et le système de fichiers Linux (Terraform redimensionne le volume
+EBS, pas la partition dessus — deux opérations distinctes). Root cause
+notée pour la doc CI/CD : un script de déploiement multi-commandes sans
+`set -e` peut masquer un échec partiel.
 
 **Commandes :**
 ```bash

@@ -59,7 +59,11 @@ resource "aws_instance" "mini_siem" {
   vpc_security_group_ids = [aws_security_group.mini_siem.id]
 
   root_block_device {
-    volume_size = 8
+    # Agrandi de 8 à 20 Go le 2026-09-13 : le build de l'image backend
+    # (scikit-learn + numpy + scipy, ajoutés pour la détection ML) faisait
+    # échouer "docker compose build" par manque d'espace disque sur
+    # l'instance. Reste dans les limites du Free Tier (30 Go d'EBS inclus).
+    volume_size = 20
     volume_type = "gp3"
   }
 
