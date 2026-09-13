@@ -289,6 +289,73 @@ l'apply) et le port 80 est bien fermé (`connection timeout` vérifié après co
 - Les credentials AWS (clé root du compte, faute d'utilisateur IAM dédié à ce
   stade) sont configurés localement via `aws configure`, jamais commités.
 
+## Monitoring (Prometheus + Grafana, sur le même cluster Minikube)
+
+Manifests dans [`k8s/monitoring/`](k8s/monitoring/) — déployés sur le cluster
+Minikube utilisé pour l'orchestration Kubernetes ci-dessus (aucun lien avec
+l'EC2/Terraform : monitoring local uniquement à ce stade).
+
+**Backend instrumenté** ([`backend/metrics.py`](backend/metrics.py), lib.
+`prometheus-client`) — endpoint `GET /metrics` exposant :
+- `http_requests_total{method,endpoint,status}` — compteur de requêtes HTTP
+- `http_request_duration_seconds{method,endpoint}` — histogramme de latence
+- `alerts_generated_total{rule_name,severity}` — compteur d'alertes produites
+  par le moteur de détection, incrémenté à chaque `POST /api/detect`
+
+**Ressources créées :**
+- 1 `Deployment` + `Service` Prometheus (port 9090), config via `ConfigMap`
+  (scrape du `Service` `backend` sur `/metrics`, règles d'alerte incluses)
+- 1 `Deployment` + `Service` Grafana (port 3000), avec provisioning automatique
+  (via `ConfigMap`) d'une datasource Prometheus et d'un dashboard "Mini-SIEM"
+- 1 `Secret` (`grafana-admin`) pour le mot de passe admin Grafana — non commité
+
+**Dashboard Grafana "Mini-SIEM"** (4 panels, provisionnés automatiquement) :
+requêtes HTTP/s par endpoint, latence p95, alertes générées cumulées par règle,
+statut `up` du backend.
+
+**Alertes Prometheus configurées** (`k8s/monitoring/prometheus-config.yaml`) :
+- `BackendDown` — `up{job="backend"} == 0` pendant 30s
+- `HighCriticalAlertRate` — plus de 3 alertes CRITICAL sur 5 minutes
+
+**Déployer :**
+```bash
+kubectl create secret generic grafana-admin --from-literal=password=<votre-mdp>
+kubectl apply -f k8s/monitoring/prometheus-config.yaml
+kubectl apply -f k8s/monitoring/prometheus.yaml
+kubectl apply -f k8s/monitoring/grafana-provisioning.yaml
+kubectl apply -f k8s/monitoring/grafana.yaml
+```
+
+**Accéder :**
+```bash
+kubectl port-forward svc/prometheus 9090:9090   # http://localhost:9090
+kubectl port-forward svc/grafana 3000:3000      # http://localhost:3000 (admin / <votre-mdp>)
+```
+
+**Testé et vérifié le 2026-09-13 :**
+- `GET /metrics` sur le backend renvoie bien les 3 métriques ci-dessus
+- Prometheus scrape le backend avec succès (`up{job="backend"} == 1`, cible
+  `health: up` dans `/api/v1/targets`)
+- Après avoir mis le backend à l'échelle 0 (`kubectl scale deploy/backend
+  --replicas=0`), la règle `BackendDown` est passée de `inactive` → `pending`
+  → **`firing`** en ~50s (30s de `for:` + latence de scrape), confirmée via
+  `/api/v1/rules` — puis revenue à `inactive` après remise à l'échelle
+- La datasource Prometheus et le dashboard "Mini-SIEM" apparaissent bien dans
+  l'API Grafana (`/api/datasources`, `/api/search`)
+- Après injection de logs de brute-force SSH + `POST /api/detect`, la requête
+  PromQL `sum by (rule_name) (alerts_generated_total)` renvoie une valeur réelle
+  (`Brute Force SSH: 1`) — confirmant que le panel correspondant du dashboard
+  affiche des données, pas un graphe vide
+
+**Limites actuelles :**
+- Pas d'Alertmanager déployé : les règles Prometheus passent bien à `firing`
+  (visible dans l'UI Prometheus), mais aucune notification n'est envoyée
+  (email/Slack) — ce serait l'étape suivante pour une alerte "actionnable".
+- Pas de stockage persistant pour Prometheus (pas de `PersistentVolumeClaim`) :
+  l'historique des métriques est perdu si le pod redémarre.
+- Dashboard limité à 4 panels de base ; pas encore de vue dédiée par règle de
+  détection ou par IP source.
+
 ## Limites connues
 
 Ce projet est **pédagogique** et n'est pas destiné à un usage en production :

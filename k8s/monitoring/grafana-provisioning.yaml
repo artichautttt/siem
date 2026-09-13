@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+data:
+  datasource.yml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus:9090
+        isDefault: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provisioning
+data:
+  dashboards.yml: |
+    apiVersion: 1
+    providers:
+      - name: mini-siem
+        folder: "Mini-SIEM"
+        type: file
+        options:
+          path: /var/lib/grafana/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-mini-siem
+data:
+  mini-siem.json: |
+    {
+      "title": "Mini-SIEM",
+      "timezone": "browser",
+      "refresh": "10s",
+      "schemaVersion": 39,
+      "panels": [
+        {
+          "id": 1,
+          "title": "Requêtes HTTP / s (par endpoint)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "targets": [
+            {
+              "expr": "sum by (endpoint) (rate(http_requests_total[1m]))",
+              "legendFormat": "{{endpoint}}"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Latence p95 (secondes)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))",
+              "legendFormat": "p95"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "Alertes générées (total cumulé, par règle)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "targets": [
+            {
+              "expr": "sum by (rule_name) (alerts_generated_total)",
+              "legendFormat": "{{rule_name}}"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "title": "Backend up",
+          "type": "stat",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "targets": [
+            { "expr": "up{job=\"backend\"}" }
+          ]
+        }
+      ]
+    }

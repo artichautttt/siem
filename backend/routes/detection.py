@@ -4,6 +4,7 @@ routes/detection.py — Endpoint Flask pour le moteur de détection (Jour 7)
 from flask import Blueprint, request, jsonify
 from detector import DetectionEngine
 from auth import require_api_key
+from metrics import record_alerts
 
 detection_bp = Blueprint("detection", __name__)
 
@@ -21,6 +22,7 @@ def run_detection():
 
     engine  = DetectionEngine(window_minutes=window)
     result  = engine.run()
+    record_alerts(result["alerts"])
 
     return jsonify(result), 200
 

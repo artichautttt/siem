@@ -31,3 +31,4 @@ terraform/.terraform/
 terraform/*.tfstate
 terraform/*.tfstate.*
 terraform/*.tfvars
+k8s/monitoring/grafana-secret.yaml
