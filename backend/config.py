@@ -23,10 +23,14 @@ except ImportError:
 PORT = int(os.environ.get("PORT", 5000))
 FLASK_DEBUG = os.environ.get("FLASK_DEBUG", "False").lower() in {"1", "true", "yes"}
 
-DB_PATH = os.environ.get(
-    "DB_PATH",
-    os.path.join(os.path.dirname(__file__), "siem.db"),
-)
+# ── Base de données (PostgreSQL) ────────────────────────────────────────────────
+# Remplace le SQLite d'origine. "postgres" est le nom de service utilisé aussi
+# bien par docker-compose que par le Service Kubernetes du même nom.
+POSTGRES_HOST     = os.environ.get("POSTGRES_HOST", "postgres")
+POSTGRES_PORT     = int(os.environ.get("POSTGRES_PORT", 5432))
+POSTGRES_DB       = os.environ.get("POSTGRES_DB", "minisiem")
+POSTGRES_USER     = os.environ.get("POSTGRES_USER", "minisiem")
+POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "minisiem")
 
 CORS_ORIGINS = [
     o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:4200").split(",")

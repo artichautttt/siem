@@ -1,9 +1,9 @@
 """
 conftest.py — Fixtures partagées pour les tests backend du Mini-SIEM.
 
-Chaque test tourne sur une base SQLite temporaire (jamais backend/siem.db)
-grâce à la variable d'environnement DB_PATH, positionnée AVANT l'import des
-modules applicatifs puis rechargés via importlib.
+Chaque test tourne contre une base PostgreSQL réelle (POSTGRES_* dans
+l'environnement — un service Postgres doit déjà tourner, voir README/CI),
+avec les tables tronquées avant chaque test pour l'isolation.
 """
 import importlib
 import os
@@ -20,21 +20,19 @@ TEST_API_KEY = "test-api-key"
 
 
 @pytest.fixture
-def app_context(tmp_path, monkeypatch):
+def app_context(monkeypatch):
     """
-    Prépare un environnement de test isolé : DB temporaire, clé API connue,
-    CORS par défaut. Recharge les modules applicatifs pour qu'ils prennent en
-    compte ces variables (config.py les lit à l'import).
+    Prépare un environnement de test isolé : tables PostgreSQL tronquées,
+    clé API connue, CORS par défaut. Recharge les modules applicatifs pour
+    qu'ils prennent en compte ces variables (config.py les lit à l'import).
 
     Retourne le module `app` (Flask) fraîchement rechargé.
     """
-    db_path = tmp_path / "test_siem.db"
-    monkeypatch.setenv("DB_PATH", str(db_path))
     monkeypatch.setenv("API_KEY", TEST_API_KEY)
     monkeypatch.setenv("CORS_ORIGINS", "http://localhost:4200")
     monkeypatch.setenv("FLASK_DEBUG", "False")
 
-    # Recharge dans l'ordre des dépendances pour propager le nouveau DB_PATH.
+    # Recharge dans l'ordre des dépendances pour propager les nouvelles env vars.
     import config
     importlib.reload(config)
     import database
@@ -53,6 +51,13 @@ def app_context(tmp_path, monkeypatch):
     importlib.reload(detection_routes)
     import app as app_module
     importlib.reload(app_module)
+
+    # Isolation entre tests : tables déjà créées par app_module (init_db()),
+    # on les vide pour repartir d'un état propre à chaque test.
+    conn = database.get_db()
+    conn.execute("TRUNCATE TABLE logs, alerts RESTART IDENTITY")
+    conn.commit()
+    conn.close()
 
     yield app_module
 

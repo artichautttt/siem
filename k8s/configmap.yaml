@@ -6,7 +6,10 @@ metadata:
   name: mini-siem-config
 data:
   PORT: "5000"
-  DB_PATH: "/app/data/siem.db"
+  POSTGRES_HOST: "postgres"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "minisiem"
+  POSTGRES_USER: "minisiem"
   CORS_ORIGINS: "http://localhost:4200"
   FLASK_DEBUG: "False"
   WAZUH_INDEXER_URL: "https://host.minikube.internal:9200"

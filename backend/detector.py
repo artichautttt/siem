@@ -13,18 +13,17 @@ Usage :
     engine = DetectionEngine()
     alerts = engine.run()   # analyse la DB et retourne les alertes générées
 """
-import sqlite3
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 
 from config import (
-    DB_PATH,
     KNOWN_BAD_IPS,
     CRITICAL_PORTS,
     HIGH_PORTS,
     CRITICAL_SERVICE_NAMES,
     MITRE_MAPPING,
 )
+from database import get_db
 
 
 @dataclass
@@ -35,12 +34,6 @@ class Alert:
     description: str
     timestamp:   str
     mitre:       dict = field(default_factory=dict)
-
-
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
 
 
 class DetectionEngine:
@@ -78,7 +71,7 @@ class DetectionEngine:
               AND action   = 'DENY'
               AND timestamp >= ?
             GROUP BY src_ip
-            HAVING cnt >= 5
+            HAVING COUNT(*) >= 5
         """, (self.since,))
 
         alerts = []
@@ -104,7 +97,7 @@ class DetectionEngine:
             WHERE action    = 'DENY'
               AND timestamp >= ?
             GROUP BY src_ip
-            HAVING ports >= 8
+            HAVING COUNT(DISTINCT dst_port) >= 8
         """, (self.since,))
 
         alerts = []
@@ -130,7 +123,7 @@ class DetectionEngine:
             WHERE action    = 'ALLOW'
               AND timestamp >= ?
             GROUP BY src_ip
-            HAVING total_bytes > 1000000
+            HAVING SUM(bytes) > 1000000
         """, (self.since,))
 
         alerts = []

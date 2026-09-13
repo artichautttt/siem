@@ -17,7 +17,7 @@ conteneurisation Docker, tests automatisés).
 ```mermaid
 flowchart LR
     G[Generator<br/>logs réalistes] --> P[Parser<br/>validation + enrichissement]
-    P --> DB[(SQLite<br/>logs / alerts)]
+    P --> DB[(PostgreSQL<br/>logs / alerts)]
     DB --> API[API Flask<br/>/api/*]
     API --> D[Detector<br/>5 règles + scoring]
     D --> DB
@@ -30,7 +30,7 @@ flowchart LR
 | Domaine        | Technologies |
 |-----------------|--------------|
 | Backend         | Python 3.11, Flask 3, Flask-CORS, Gunicorn |
-| Base de données | SQLite |
+| Base de données | PostgreSQL 16 |
 | Frontend        | Angular 21 (standalone components), Chart.js, RxJS |
 | Tests           | Pytest (backend), Vitest via `@angular/build:unit-test` (frontend) |
 | DevOps          | Docker, Docker Compose, python-dotenv |
@@ -55,10 +55,11 @@ Prérequis : Docker et Docker Compose.
    - `CORS_ORIGINS` : origines autorisées, séparées par des virgules (défaut `http://localhost:4200`)
    - `API_KEY` : clé requise en header `X-API-Key` pour les endpoints d'écriture — **à changer** avant tout usage partagé
    - `FLASK_DEBUG` : `True`/`False`, ne jamais activer en production
+   - `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` : identifiants de la base
+     PostgreSQL (service `postgres` du compose) — **à changer** avant tout usage partagé
 
-   `PORT` et `DB_PATH` sont fixés directement dans `docker-compose.yml` (respectivement
-   `5000` et `/app/data/siem.db`, ce dernier monté depuis `./backend/data`) et ne se
-   configurent pas via ce `.env`.
+   `PORT` et `POSTGRES_HOST` (`postgres`, le nom du service) sont fixés directement
+   dans `docker-compose.yml` et ne se configurent pas via ce `.env`.
 
 2. Lancer l'ensemble des services :
    ```bash
@@ -181,16 +182,21 @@ Manifests dans [`k8s/`](k8s/) — orchestration locale de la même application q
 (cluster local, pas de cluster managé payant).
 
 **Ressources créées** (vérifiées via `kubectl get pods,svc,deploy,pvc,ingress`) :
-- 2 `Deployment` (1 replica chacun) : `backend`, `frontend`
-- 2 `Service` ClusterIP : `backend` (5000), `frontend` (80)
-- 1 `ConfigMap` (`mini-siem-config`) : variables non sensibles (`PORT`, `DB_PATH`,
-  `CORS_ORIGINS`, `FLASK_DEBUG`, `WAZUH_*` non secrets)
-- 1 `Secret` (`mini-siem-secret`) : `API_KEY`, `WAZUH_PASSWORD` — **non commité**,
-  voir `k8s/secret.example.yaml` comme modèle
-- 1 `PersistentVolumeClaim` (`mini-siem-data`, 200 Mi) : stockage du fichier SQLite,
-  monté sur `/app/data` dans le pod backend
+- 3 `Deployment` (1 replica chacun) : `backend`, `frontend`, `postgres`
+- 3 `Service` ClusterIP : `backend` (5000), `frontend` (80), `postgres` (5432)
+- 1 `ConfigMap` (`mini-siem-config`) : variables non sensibles (`PORT`,
+  `POSTGRES_HOST/PORT/DB/USER`, `CORS_ORIGINS`, `FLASK_DEBUG`, `WAZUH_*` non secrets)
+- 1 `Secret` (`mini-siem-secret`) : `API_KEY`, `WAZUH_PASSWORD`, `POSTGRES_PASSWORD`
+  — **non commité**, voir `k8s/secret.example.yaml` comme modèle
+- 1 `PersistentVolumeClaim` (`postgres-data`, 500 Mi) : stockage des données
+  PostgreSQL, monté sur `/var/lib/postgresql/data` dans le pod `postgres`
 - 1 `Ingress` (`mini-siem-ingress`, classe `nginx`) : route `/` vers `frontend`,
   `/api` vers `backend`
+
+Le pod `backend` a un `initContainer` (`wait-for-postgres`, `pg_isready` en
+boucle) qui bloque son démarrage tant que Postgres n'accepte pas de connexions
+— l'équivalent du `depends_on: condition: service_healthy` de docker-compose,
+qui n'a pas d'équivalent direct côté Kubernetes.
 
 **Lancer le cluster local :**
 ```bash
@@ -215,6 +221,7 @@ kubectl create secret generic mini-siem-secret \
   --from-literal=WAZUH_PASSWORD=<votre-mot-de-passe>
 
 kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/postgres.yaml
 kubectl apply -f k8s/backend.yaml
 kubectl apply -f k8s/frontend.yaml
 kubectl apply -f k8s/ingress.yaml
@@ -411,6 +418,48 @@ stratégie `Recreate`.
 - Le récepteur Alertmanager est un webhook de démonstration (logs uniquement),
   pas une vraie destination de notification (email/Slack).
 
+## Base de données (migration SQLite → PostgreSQL, 2026-09-13)
+
+Le projet utilisait initialement SQLite (fichier unique, pas de service
+séparé). Migré vers PostgreSQL 16, disponible comme service dans
+`docker-compose.yml`, `k8s/postgres.yaml`, et dans le pipeline CI (service
+Postgres éphémère pour les tests).
+
+**Choix d'implémentation :** le code applicatif (`routes/*.py`, `detector.py`)
+était écrit contre l'API `sqlite3` — placeholders `?`, `conn.execute(...)`
+directement sur la connexion, `cursor.lastrowid` après un `INSERT`. Plutôt que
+réécrire chacun des ~40 sites d'appel pour l'API `psycopg2` (placeholders
+`%s`, exécution uniquement via un curseur, pas de `lastrowid`),
+[`backend/database.py`](backend/database.py) fournit un fin adaptateur qui
+traduit ces appels vers `psycopg2` (`?` → `%s`, ajout automatique de
+`RETURNING id` sur les `INSERT`, `dict(row)` toujours utilisable). C'est un
+compromis assumé : moins de risque de régression sur la logique métier
+existante en échange d'une petite couche de traduction à maintenir — un ORM
+(SQLAlchemy) serait le choix standard pour un projet plus large.
+
+**Différence sémantique trouvée et corrigée pendant la migration :** SQLite
+autorise `HAVING <alias_de_select>` (ex. `HAVING total_bytes > 1000000` avec
+`SUM(bytes) AS total_bytes` dans le `SELECT`) ; PostgreSQL, conforme au
+standard SQL, ne le permet pas et lève `UndefinedColumn`. Corrigé dans les 3
+règles de détection concernées (`detector.py`) en répétant l'expression
+agrégée dans le `HAVING` (`HAVING SUM(bytes) > 1000000`, etc.).
+
+**Testé et vérifié :** les 16 tests backend passent contre une vraie instance
+PostgreSQL (service Docker en local, puis service Postgres dans le job CI) ;
+vérifié manuellement `INSERT`/`SELECT`/`lastrowid`, puis un scénario complet
+`POST /api/logs` × 7 → `POST /api/detect` → alerte "Brute Force SSH" bien
+générée (confirme que l'adaptateur, le `GROUP BY`/`HAVING` corrigé et
+`lastrowid` fonctionnent ensemble bout en bout).
+
+**Limites actuelles :**
+- L'adaptateur `?` → `%s` est une traduction naïve (`str.replace`) : sans
+  risque ici (le jeu de requêtes du projet ne contient aucun `?` littéral
+  hors paramètre), mais pas un parseur SQL général.
+- Pas de migrations versionnées (Alembic ou équivalent) : le schéma est créé
+  par un unique `CREATE TABLE IF NOT EXISTS` dans `init_db()`, comme avant
+  avec SQLite — suffisant ici (schéma stable, projet pédagogique) mais ne
+  passerait pas à l'échelle d'évolutions de schéma fréquentes.
+
 ## Limites connues
 
 Ce projet est **pédagogique** et n'est pas destiné à un usage en production :
@@ -418,7 +467,6 @@ Ce projet est **pédagogique** et n'est pas destiné à un usage en production :
   ingestion réseau (pas d'agent, pas de capture de trafic, pas de syslog).
 - Les règles de détection sont simples (seuils fixes, fenêtre glissante) et
   ne remplacent pas un moteur de corrélation avancé.
-- SQLite n'est pas conçu pour de forts volumes ou de la concurrence élevée.
 - L'authentification est une clé API unique partagée, sans gestion
   d'utilisateurs, de rôles ni de rotation automatique.
 - Pas de chiffrement TLS configuré par défaut (à ajouter via un reverse proxy

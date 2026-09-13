@@ -18,12 +18,12 @@ def get_timeline():
     conn = get_db()
     rows = conn.execute("""
         SELECT
-            strftime('%Y-%m-%dT%H:00:00', timestamp) AS hour,
+            to_char(timestamp::timestamp, 'YYYY-MM-DD"T"HH24:00:00') AS hour,
             COUNT(*) AS total,
             SUM(CASE WHEN action='DENY'  THEN 1 ELSE 0 END) AS denied,
             SUM(CASE WHEN severity IN ('HIGH','CRITICAL') THEN 1 ELSE 0 END) AS threats
         FROM logs
-        WHERE timestamp >= datetime('now', '-24 hours')
+        WHERE timestamp::timestamp >= now() - interval '24 hours'
         GROUP BY hour
         ORDER BY hour ASC
     """).fetchall()
@@ -91,11 +91,11 @@ def get_severity_over_time():
     conn = get_db()
     rows = conn.execute("""
         SELECT
-            strftime('%Y-%m-%dT%H:00:00', timestamp) AS hour,
+            to_char(timestamp::timestamp, 'YYYY-MM-DD"T"HH24:00:00') AS hour,
             severity,
             COUNT(*) AS count
         FROM logs
-        WHERE timestamp >= datetime('now', '-24 hours')
+        WHERE timestamp::timestamp >= now() - interval '24 hours'
         GROUP BY hour, severity
         ORDER BY hour ASC
     """).fetchall()

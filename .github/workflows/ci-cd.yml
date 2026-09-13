@@ -9,6 +9,20 @@ on:
 jobs:
   backend-tests:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: minisiem
+          POSTGRES_USER: minisiem
+          POSTGRES_PASSWORD: minisiem
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U minisiem -d minisiem"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -19,6 +33,12 @@ jobs:
         run: pip install -r requirements.txt
       - name: Run pytest
         working-directory: backend
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: minisiem
+          POSTGRES_USER: minisiem
+          POSTGRES_PASSWORD: minisiem
         run: pytest -q
 
   frontend-tests:

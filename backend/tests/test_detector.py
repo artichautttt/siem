@@ -25,8 +25,8 @@ def insert_log(database, **overrides):
     conn.execute(
         """INSERT INTO logs (timestamp, src_ip, dst_ip, src_port, dst_port,
                               protocol, action, bytes, severity, message)
-           VALUES (:timestamp, :src_ip, :dst_ip, :src_port, :dst_port,
-                   :protocol, :action, :bytes, :severity, :message)""",
+           VALUES (%(timestamp)s, %(src_ip)s, %(dst_ip)s, %(src_port)s, %(dst_port)s,
+                   %(protocol)s, %(action)s, %(bytes)s, %(severity)s, %(message)s)""",
         log,
     )
     conn.commit()

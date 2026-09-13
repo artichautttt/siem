@@ -9,10 +9,10 @@ Usage :
 """
 import requests
 import argparse
-import sqlite3
+from database import get_db
 from generator import LogGenerator
 from parser import LogParser
-from config import DB_PATH, API_KEY
+from config import API_KEY
 
 API_URL = "http://localhost:5000/api/logs"
 
@@ -52,12 +52,12 @@ def seed_via_api(n: int):
 
 
 def seed_direct_db(n: int):
-    """Insère les logs directement en SQLite (sans API)."""
+    """Insère les logs directement en base (sans passer par l'API)."""
     gen    = LogGenerator()
     parser = LogParser()
     logs   = gen.generate_batch(n)
 
-    conn   = sqlite3.connect(DB_PATH)
+    conn   = get_db()
     cursor = conn.cursor()
     success = errors = 0
 

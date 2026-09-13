@@ -1,23 +1,9 @@
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: mini-siem-data
-spec:
-  accessModes: ["ReadWriteOnce"]
-  resources:
-    requests:
-      storage: 200Mi
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backend
 spec:
   replicas: 1
-  strategy:
-    # PVC ReadWriteOnce (le fichier SQLite) : voir la même remarque dans
-    # k8s/monitoring/prometheus.yaml sur le rolling update.
-    type: Recreate
   selector:
     matchLabels:
       app: backend
@@ -26,6 +12,21 @@ spec:
       labels:
         app: backend
     spec:
+      # Attend que Postgres accepte les connexions avant de démarrer le
+      # backend (équivalent du "depends_on: condition: service_healthy" de
+      # docker-compose, qui n'a pas d'équivalent direct côté Kubernetes).
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          envFrom:
+            - configMapRef:
+                name: mini-siem-config
+            - secretRef:
+                name: mini-siem-secret
+          command:
+            - sh
+            - -c
+            - until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER"; do sleep 2; done
       containers:
         - name: backend
           image: minisiem-backend:k8s
@@ -37,9 +38,6 @@ spec:
                 name: mini-siem-config
             - secretRef:
                 name: mini-siem-secret
-          volumeMounts:
-            - name: data
-              mountPath: /app/data
           readinessProbe:
             httpGet:
               path: /api/health
@@ -52,10 +50,6 @@ spec:
               port: 5000
             initialDelaySeconds: 10
             periodSeconds: 20
-      volumes:
-        - name: data
-          persistentVolumeClaim:
-            claimName: mini-siem-data
 ---
 apiVersion: v1
 kind: Service
