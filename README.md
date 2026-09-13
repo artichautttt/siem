@@ -244,6 +244,51 @@ l'utilise pas et appelle directement le Service `backend` exposé en local (via
 `port-forward` ci-dessus). Rendre cette URL relative serait nécessaire pour que
 l'Ingress serve de point d'entrée unique réel.
 
+## Infrastructure as Code (Terraform)
+
+Fichiers dans [`terraform/`](terraform/) — reprend en code l'instance EC2 et son
+security group jusqu'ici configurés manuellement dans la console AWS (voir
+section CI/CD ci-dessus). Ne provisionne pas de VPC dédié : utilise le VPC et le
+subnet par défaut du compte, dans les limites du Free Tier (`t3.micro`).
+
+**Ressources gérées :**
+- `aws_security_group.mini_siem` — 3 règles ingress explicites : SSH (22),
+  API backend (5000), frontend (4200), toutes en `0.0.0.0/0` ; egress ouvert
+- `aws_instance.mini_siem` — l'instance EC2 existante (`t3.micro`, Ubuntu,
+  volume racine 8 Go gp3)
+
+**Commandes :**
+```bash
+cd terraform
+terraform init
+terraform plan
+terraform apply
+```
+
+**Comment c'est vérifié (fait le 2026-09-13) :** l'instance et le security group
+existants (créés manuellement avant cette étape) ont été importés dans l'état
+Terraform via `terraform import` (`aws_instance.mini_siem`,
+`aws_security_group.mini_siem`), pour que le code reflète l'infra réelle sans la
+recréer. Un premier `terraform plan` a révélé une règle ingress port 80 inutilisée
+(héritée de la configuration manuelle initiale, jamais utilisée par
+l'application qui écoute sur 4200/5000) ; `terraform apply` l'a supprimée et a
+ajouté des descriptions explicites aux règles restantes — **0 ressource ajoutée,
+1 modifiée (mise à jour en place, sans remplacement), 0 détruite**. Un
+`terraform plan` exécuté juste après confirme `No changes. Your infrastructure
+matches the configuration.` L'application est restée accessible tout du long
+(`/api/health` et le frontend ont continué à répondre `200` pendant et après
+l'apply) et le port 80 est bien fermé (`connection timeout` vérifié après coup).
+
+**Limites actuelles :**
+- Le nom et l'AMI/subnet de l'instance sont volontairement figés sur les valeurs
+  déjà existantes (les changer forcerait Terraform à recréer la ressource) —
+  ce n'est donc pas encore un module 100 % reproductible from scratch sur un
+  compte AWS vierge sans adaptation des variables.
+- Pas de backend d'état distant (le fichier `terraform.tfstate` reste local,
+  non commité — voir `.gitignore`) : pas de state partagé en équipe à ce stade.
+- Les credentials AWS (clé root du compte, faute d'utilisateur IAM dédié à ce
+  stade) sont configurés localement via `aws configure`, jamais commités.
+
 ## Limites connues
 
 Ce projet est **pédagogique** et n'est pas destiné à un usage en production :

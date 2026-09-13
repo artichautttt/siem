@@ -24,3 +24,10 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 k8s/secret.yaml
+
+# Terraform (le fichier d'état contient des IDs/IP réels, .terraform/ est du
+# cache local ; .terraform.lock.hcl reste committé, c'est la bonne pratique)
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfvars
