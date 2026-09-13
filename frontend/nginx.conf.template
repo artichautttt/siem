@@ -1,0 +1,20 @@
+# Reverse proxy nginx : sert le build Angular et relaie /api vers le backend
+# Flask. BACKEND_HOST est substitué au démarrage du conteneur (nginx:alpine
+# supporte envsubst sur les fichiers dans /etc/nginx/templates/), avec pour
+# valeur par défaut le nom de service "backend" utilisé aussi bien par
+# docker-compose que par le Service Kubernetes du même nom.
+server {
+    listen 80;
+
+    location /api/ {
+        proxy_pass http://${BACKEND_HOST}/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location / {
+        root   /usr/share/nginx/html;
+        index  index.html;
+        try_files $uri $uri/ /index.html;
+    }
+}

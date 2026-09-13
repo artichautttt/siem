@@ -237,12 +237,19 @@ kubectl port-forward svc/frontend 4200:80
 redémarrage, le `PersistentVolumeClaim` passe à l'état `Bound`, et les trois modes
 d'accès ci-dessus renvoient `200` sur `/` et `/api/health`.
 
-**Limite connue :** le frontend Angular est compilé avec une URL d'API absolue
-(`http://localhost:5000/api`, voir `frontend/src/environments/environment.ts`) —
-la règle Ingress `/api` fonctionne, mais le frontend tel que buildé actuellement ne
-l'utilise pas et appelle directement le Service `backend` exposé en local (via
-`port-forward` ci-dessus). Rendre cette URL relative serait nécessaire pour que
-l'Ingress serve de point d'entrée unique réel.
+**Correction apportée (2026-09-13) :** le frontend appelait initialement une URL
+d'API absolue (`http://localhost:5000/api`), ce qui contournait la règle Ingress
+`/api`. Corrigé : `environment.prod.ts` utilise désormais une URL relative
+(`/api`), et l'image nginx du frontend embarque un reverse proxy
+([`frontend/nginx.conf.template`](frontend/nginx.conf.template)) qui relaie
+`/api/*` vers le Service `backend:5000` (variable `BACKEND_HOST`, surchageable).
+Revérifié : `/api/health` renvoie `200` à la fois via l'Ingress et via le
+Service `frontend` accédé directement (sans passer par la règle Ingress `/api`),
+confirmant que c'est bien le proxy nginx du pod qui relaie la requête, pas
+seulement la route Ingress. Ce même correctif profite aussi au déploiement
+EC2/docker-compose (pas d'Ingress là-bas) : le frontend nginx y relaie
+désormais aussi `/api` vers le conteneur `backend`, au lieu de dépendre d'un
+port 5000 exposé séparément sur l'hôte.
 
 ## Infrastructure as Code (Terraform)
 
