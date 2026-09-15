@@ -176,6 +176,16 @@ la communauté, **aucune authentification requise**, ~28 000 IP en pratique.
   contre la base à chaque exécution, bien trop lent)
 - `GET /api/threat-intel/status` expose la source utilisée et le nombre d'IP
 
+**Benchmark réel** ([`backend/benchmark_threat_intel.py`](backend/benchmark_threat_intel.py))
+comparant l'implémentation initiale (une requête SQL par IP de la liste) à
+l'implémentation actuelle, sur le vrai flux (25 961 IP le jour du test) et
+503 logs en base (dont 3 correspondant à de vraies IP malveillantes du
+flux) : **13,379 s → 0,025 s, soit ×539**, avec exactement les mêmes 3
+correspondances trouvées dans les deux cas (assertion automatique dans le
+script). Le facteur exact dépend du nombre d'IP dans le flux ce jour-là et
+du volume de logs — reproductible via `python benchmark_threat_intel.py`
+(nécessite `POSTGRES_*` et une connexion réseau).
+
 **Testé et vérifié** : `GET /api/threat-intel/status` renvoie
 `{"count": 28078, "source": "https://lists.blocklist.de/lists/all.txt", "using_fallback": false}`
 en conditions réelles (Minikube, via l'Ingress) ; une vraie IP piochée dans le
