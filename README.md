@@ -228,28 +228,43 @@ qu'un résultat statistiquement non fiable.
 
 ## Scan de sécurité (Trivy, 2026-09-19)
 
-Premier scan avec [Trivy](https://trivy.dev/) (image `aquasec/trivy:latest`) du
-dépôt, exécuté en local puis ajouté à la CI (job `security-scan`, non bloquant
-pour le déploiement : `exit-code: 0`, à passer à `1` une fois les findings
-HIGH/CRITICAL traités).
+Scan avec [Trivy](https://trivy.dev/) (image `aquasec/trivy:latest`) du dépôt,
+d'abord en local, puis en CI (job `security-scan`, vérifié vert sur GitHub
+Actions ; non bloquant pour le déploiement : `exit-code: 0`, à passer à `1`
+une fois les findings HIGH/CRITICAL restants traités).
 
-**Dépendances (`trivy fs`)** : 0 secret détecté ; 30 vulnérabilités dont 11 HIGH.
-- Backend (`requirements.txt`) : 3 HIGH — `PyJWT 2.9.0` (2 CVE, corrigé en 2.12.0 / 2.13.0)
-  et `flask-cors 4.0.1` (CVE-2024-6221, corrigé en 4.0.2).
-- Frontend (`package-lock.json`) : 8 HIGH, toutes sur `@angular/common`,
-  `@angular/compiler` et `@angular/core` 21.2.10 (corrigées dans 21.2.19).
+| Périmètre | Avant | Après corrections |
+|---|---|---|
+| Dépendances (`trivy fs`) : HIGH | **11** | **0** |
+| Dépendances : MEDIUM / LOW | 17 / 2 | 7 / 1 |
+| Configuration (`trivy config`) : HIGH + CRITICAL | 28 (27 + 1) | 19 (18 + 1) |
+| Dockerfiles : échecs | 4 (2 par Dockerfile) | **0** |
+| Secrets détectés | 0 | 0 |
 
-**Configuration (`trivy config`)** — Terraform (`terraform/main.tf`), 5 findings :
-- CRITICAL `AWS-0104` : egress du security group ouvert vers toute IP
-- HIGH `AWS-0107` : SSH (22) ouvert à `0.0.0.0/0`
-- HIGH `AWS-0028` : IMDSv2 non exigé sur l'instance EC2
-- HIGH `AWS-0131` : volume racine non chiffré
-- LOW `AWS-0124` : règle de security group sans description
+**Corrigé** (aucun changement de l'infra AWS) :
+- `PyJWT` 2.9.0 → 2.13.0 et `flask-cors` 4.0.1 → 4.0.2 (3 HIGH)
+- Angular 21.2.10 → 21.2.23 (8 HIGH), lockfile régénéré ; `npm install` ne rapporte plus de vulnérabilité
+- Backend et frontend exécutés sans privilèges : `USER 10001` (backend), image
+  `nginx-unprivileged` (UID 101, écoute sur 8080 au lieu de 80) ; `HEALTHCHECK` ajoutés
+- Manifests Kubernetes backend/frontend : `runAsNonRoot`, `seccompProfile: RuntimeDefault`,
+  `allowPrivilegeEscalation: false`, `capabilities: drop ALL`, requests/limits CPU et
+  mémoire ; système de fichiers racine en lecture seule côté backend (`/tmp` en `emptyDir`)
 
-Dockerfiles : conteneurs exécutés en `root` (`DS-0002`, HIGH) pour le backend et
-le frontend. Manifests Kubernetes : pas de `securityContext` (root, système de
-fichiers racine en écriture, pas de limites CPU/mémoire) sur tous les
-Deployments. Ces findings sont connus et non corrigés à ce stade.
+**Vérifié après corrections** : 22/22 tests backend et 7/7 tests frontend passent ;
+stack docker-compose complète saine (`/api/health` = 200 via le proxy nginx) ;
+déploiement sur Minikube : pods `Running`, 0 redémarrage, processus en `uid=10001` /
+`uid=101`, `200` sur `/api/health` et `/` via l'Ingress.
+
+**Restant, volontairement non traité :**
+- Terraform (`main.tf`) : CRITICAL `AWS-0104` (egress ouvert), HIGH `AWS-0107`
+  (SSH ouvert à `0.0.0.0/0`), `AWS-0028` (IMDSv2), `AWS-0131` (volume racine non
+  chiffré). Ces changements touchent l'instance EC2 déployée (le chiffrement du
+  volume racine force sa recréation) : à appliquer uniquement après `terraform
+  plan` et validation explicite.
+- Manifests postgres et monitoring (Prometheus, Grafana, Alertmanager, alert-sink) :
+  pas de `securityContext` ; ces images démarrent en root pour préparer leurs
+  volumes, les durcir demande des tests dédiés.
+- Frontend K8s : `readOnlyRootFilesystem` non activé (nginx écrit sa configuration générée).
 
 ```bash
 docker run --rm -v "$PWD:/src:ro" aquasec/trivy:latest fs --scanners vuln,secret --skip-dirs /src/frontend/node_modules /src

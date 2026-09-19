@@ -12,6 +12,11 @@ spec:
       labels:
         app: backend
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
       # Attend que Postgres accepte les connexions avant de démarrer le
       # backend (équivalent du "depends_on: condition: service_healthy" de
       # docker-compose, qui n'a pas d'équivalent direct côté Kubernetes).
@@ -27,12 +32,32 @@ spec:
             - sh
             - -c
             - until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER"; do sleep 2; done
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
       containers:
         - name: backend
           image: minisiem-backend:k8s
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          # readOnlyRootFilesystem : gunicorn/joblib ont besoin d'un /tmp inscriptible.
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           envFrom:
             - configMapRef:
                 name: mini-siem-config
@@ -50,6 +75,9 @@ spec:
               port: 5000
             initialDelaySeconds: 10
             periodSeconds: 20
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

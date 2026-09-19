@@ -4,7 +4,7 @@
 # valeur par défaut le nom de service "backend" utilisé aussi bien par
 # docker-compose que par le Service Kubernetes du même nom.
 server {
-    listen 80;
+    listen 8080;
 
     # nginx résout proxy_pass une seule fois au démarrage par défaut : si le
     # conteneur backend est recréé (nouvelle IP) sans que le frontend le soit
