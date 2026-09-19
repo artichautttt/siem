@@ -55,6 +55,32 @@ jobs:
         working-directory: frontend
         run: npx ng test --no-watch
 
+  # Scan de sécurité (Trivy) : dépendances Python/npm (CVE) et configuration
+  # Terraform/Kubernetes/Dockerfiles (misconfigurations). Volontairement hors
+  # de `needs` du job deploy et avec exit-code 0 : l'état actuel du dépôt a
+  # des findings connus (voir README, section Scan de sécurité), ce job les
+  # rend visibles sans bloquer les déploiements. Passer exit-code à '1' pour
+  # en faire un garde-fou bloquant une fois les findings HIGH/CRITICAL traités.
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy — vulnérabilités des dépendances et secrets
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scanners: vuln,secret
+          skip-dirs: frontend/node_modules
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+      - name: Trivy — misconfigurations (Terraform, Kubernetes, Dockerfiles)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: config
+          skip-dirs: frontend/node_modules
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+
   deploy:
     needs: [backend-tests, frontend-tests]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'

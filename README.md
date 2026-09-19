@@ -226,6 +226,36 @@ Docker isolé puis en conditions réelles sur Minikube via l'Ingress. Vérifié
 aussi qu'avec moins de 5 IP distinctes, l'endpoint renvoie `0` alerte plutôt
 qu'un résultat statistiquement non fiable.
 
+## Scan de sécurité (Trivy, 2026-09-19)
+
+Premier scan avec [Trivy](https://trivy.dev/) (image `aquasec/trivy:latest`) du
+dépôt, exécuté en local puis ajouté à la CI (job `security-scan`, non bloquant
+pour le déploiement : `exit-code: 0`, à passer à `1` une fois les findings
+HIGH/CRITICAL traités).
+
+**Dépendances (`trivy fs`)** : 0 secret détecté ; 30 vulnérabilités dont 11 HIGH.
+- Backend (`requirements.txt`) : 3 HIGH — `PyJWT 2.9.0` (2 CVE, corrigé en 2.12.0 / 2.13.0)
+  et `flask-cors 4.0.1` (CVE-2024-6221, corrigé en 4.0.2).
+- Frontend (`package-lock.json`) : 8 HIGH, toutes sur `@angular/common`,
+  `@angular/compiler` et `@angular/core` 21.2.10 (corrigées dans 21.2.19).
+
+**Configuration (`trivy config`)** — Terraform (`terraform/main.tf`), 5 findings :
+- CRITICAL `AWS-0104` : egress du security group ouvert vers toute IP
+- HIGH `AWS-0107` : SSH (22) ouvert à `0.0.0.0/0`
+- HIGH `AWS-0028` : IMDSv2 non exigé sur l'instance EC2
+- HIGH `AWS-0131` : volume racine non chiffré
+- LOW `AWS-0124` : règle de security group sans description
+
+Dockerfiles : conteneurs exécutés en `root` (`DS-0002`, HIGH) pour le backend et
+le frontend. Manifests Kubernetes : pas de `securityContext` (root, système de
+fichiers racine en écriture, pas de limites CPU/mémoire) sur tous les
+Deployments. Ces findings sont connus et non corrigés à ce stade.
+
+```bash
+docker run --rm -v "$PWD:/src:ro" aquasec/trivy:latest fs --scanners vuln,secret --skip-dirs /src/frontend/node_modules /src
+docker run --rm -v "$PWD:/src:ro" aquasec/trivy:latest config --skip-dirs /src/frontend/node_modules /src
+```
+
 ## Tests
 
 ```bash
@@ -247,7 +277,7 @@ Pipeline GitHub Actions défini dans [`.github/workflows/ci-cd.yml`](.github/wor
 - `pull_request` vers `main` : exécute les tests uniquement (pas de déploiement)
 
 **Jobs :**
-1. `backend-tests` — installe les dépendances Python 3.11, lance `pytest` (16 tests)
+1. `backend-tests` — installe les dépendances Python 3.11, lance `pytest` (22 tests)
 2. `frontend-tests` — installe les dépendances Node 20, lance `ng test --no-watch` (7 tests)
 3. `deploy` — ne s'exécute que si les deux jobs de tests précédents réussissent **et** que le déclencheur est un push sur `main` (pas sur une pull request). Se connecte en SSH à l'instance EC2 cible et exécute `git pull` + `docker compose up -d --build`.
 
@@ -581,7 +611,7 @@ standard SQL, ne le permet pas et lève `UndefinedColumn`. Corrigé dans les 3
 règles de détection concernées (`detector.py`) en répétant l'expression
 agrégée dans le `HAVING` (`HAVING SUM(bytes) > 1000000`, etc.).
 
-**Testé et vérifié :** les 16 tests backend passent contre une vraie instance
+**Testé et vérifié :** les 22 tests backend passent contre une vraie instance
 PostgreSQL (service Docker en local, puis service Postgres dans le job CI) ;
 vérifié manuellement `INSERT`/`SELECT`/`lastrowid`, puis un scénario complet
 `POST /api/logs` × 7 → `POST /api/detect` → alerte "Brute Force SSH" bien
