@@ -19,7 +19,7 @@ flowchart LR
     G[Generator<br/>logs réalistes] --> P[Parser<br/>validation + enrichissement]
     P --> DB[(PostgreSQL<br/>logs / alerts)]
     DB --> API[API Flask<br/>/api/*]
-    API --> D[Detector<br/>5 règles + scoring]
+    API --> D[Detector<br/>7 règles + scoring]
     D --> DB
     API --> UI[Dashboard Angular<br/>Chart.js]
     UI -->|POST /api/detect| API
@@ -139,9 +139,10 @@ console) → déconnexion → retour automatique à l'écran de connexion,
 
 Chaque règle de détection est associée à une technique du framework
 [MITRE ATT&CK](https://attack.mitre.org/), retournée dans le champ `mitre` de
-chaque alerte produite par `POST /api/detect`. Le moteur implémente 5 règles ;
-la règle "accès à un service critique" couvre 3 ports (Telnet/SMB/RDP),
-détaillés ci-dessous chacun sur sa propre ligne.
+chaque alerte produite par `POST /api/detect`. Le moteur implémente 7 règles,
+une par ligne ci-dessous ; les 3 règles d'accès à un service critique
+(Telnet, SMB, RDP) partagent la même logique de détection, chacune avec sa
+propre technique MITRE ATT&CK.
 
 | Règle                          | Déclencheur                                             | Sévérité | Technique MITRE ATT&CK |
 |---------------------------------|----------------------------------------------------------|----------|--------------------------|
@@ -197,7 +198,7 @@ appel réseau n'est refait), et le repli sur panne réseau simulée
 
 ## Détection d'anomalies par ML (2026-09-13)
 
-Complète les 5 règles à seuils fixes avec une approche statistique :
+Complète les 7 règles de détection avec une approche statistique :
 [`backend/ml_detector.py`](backend/ml_detector.py) utilise un
 `IsolationForest` (scikit-learn) qui apprend un profil "normal" de
 comportement par IP source sur la fenêtre analysée (nombre d'événements,
